@@ -56,7 +56,9 @@
 .aurox-empty { border:1px dashed hsl(var(--border)); border-radius:16px; padding:3rem 1.25rem; display:flex; align-items:center; flex-direction:column; gap:.8rem; color:hsl(var(--muted-foreground)); text-align:center; }
 .aurox-empty strong { font-size:1.08rem; color:hsl(var(--foreground)); }
 .aurox-workspace :is(button,a):focus-visible { outline:2px solid hsl(var(--ring)); outline-offset:3px; }
-@media(min-width:1024px) { .aurox-sidebar { box-shadow:1px 0 0 hsl(var(--border)); } .aurox-mobile-nav { display:none!important; } }
+/* AUROX: barra permanente também no desktop; centro da área de conteúdo, sem cobrir sidebar. */
+@media(min-width:1024px) { .aurox-sidebar { box-shadow:1px 0 0 hsl(var(--border)); } .aurox-mobile-nav { display:flex!important; left:calc(50% + 9rem)!important; max-width:calc(100vw - 19rem); } }
+@media(max-width:1023px) { .aurox-mobile-nav { display:flex!important; } }
 @media(max-width:1350px) { .aurox-filter-fields,.aurox-filter-fields.has-company { grid-template-columns:repeat(3,minmax(0,1fr)); } .aurox-filter-fields > :first-child { grid-column:span 2; } .aurox-lead-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:900px) { .aurox-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } .aurox-lead-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:640px) { .aurox-shell-main { padding-inline:.75rem!important; padding-top:4.2rem!important; padding-bottom:7rem!important; } .aurox-workspace-head { display:none; } .aurox-kpis { display:flex; overflow-x:auto; gap:.65rem; scroll-snap-type:x mandatory; padding-bottom:.3rem; } .aurox-kpi { min-width:138px; scroll-snap-align:start; padding:.85rem; } .aurox-filter-board { padding:.85rem; } .aurox-filter-fields,.aurox-filter-fields.has-company { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; } .aurox-filter-fields > :first-child { grid-column:span 2; } .aurox-lead-grid { grid-template-columns:1fr; } .aurox-list-section { padding:.85rem; } .aurox-page-heading { align-items:stretch; } .aurox-page-heading > a { width:100%; } .aurox-page-heading > a button { width:100%; } }

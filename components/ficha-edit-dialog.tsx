@@ -478,7 +478,7 @@ export function FichaEditDialog({ fichaId, onClose }: { fichaId: number | null; 
 
           {canEdit && (
             <div className="space-y-2 rounded border border-border p-3">
-              <div className="text-sm font-medium">Como foi a venda (vai para o faturamento)</div>
+              <div className="text-sm font-medium">Dados comerciais da venda</div>
               <div className="grid gap-3 md:grid-cols-4">
                 <div>
                   <Label className="text-xs">Banco escolhido</Label>
@@ -497,7 +497,12 @@ export function FichaEditDialog({ fichaId, onClose }: { fichaId: number | null; 
                 <div><Label className="text-xs">Entrada</Label><Input type="number" value={data.entrada_total ?? ''} onChange={(e) => setData({ ...data, entrada_total: e.target.value })} /></div>
                 <div><Label className="text-xs">Parcelas</Label><Input type="number" value={data.fin_parcelas ?? data.boleto_meses ?? ''} onChange={(e) => setData({ ...data, fin_parcelas: e.target.value })} /></div>
                 <div><Label className="text-xs">Valor da parcela</Label><Input type="number" value={data.fin_valor_parcela ?? ''} onChange={(e) => setData({ ...data, fin_valor_parcela: e.target.value })} /></div>
-                <div><Label className="text-xs">Valor financiado (só elfenAI)</Label><Input type="number" value={data.valor_liberado ?? ''} onChange={(e) => setData({ ...data, valor_liberado: e.target.value })} /></div>
+                <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 md:col-span-4">
+                  <p className="text-sm font-semibold text-emerald-500">Financiamento liberado — exclusivo de Fichas e Finanças</p>
+                  <Label className="text-xs">Valor efetivamente liberado pelo banco (R$)</Label>
+                  <Input type="number" min="0" step="0.01" className="max-w-xs" value={data.valor_liberado ?? ''} onChange={(e) => setData({ ...data, valor_liberado: e.target.value })} />
+                  <p className="text-xs text-muted-foreground">Registro bancário da ficha; aparece em Finanças. Não é transferido para o Faturamento e não equivale às parcelas futuras.</p>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">Os outros bancos ficam na ficha. Aqui só escolhe qual foi o contratado.</p>
             </div>

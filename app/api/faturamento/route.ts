@@ -47,22 +47,8 @@ export async function GET(req: NextRequest) {
       SELECT
         f.id, f.nome, f.cpf_cnpj, f.placa, f.marca, f.modelo, f.ano_modelo,
         f.entrada_total, f.status, f.vendedor_nome, f.criado_por_id,
-        f.created_at, f.loja, f.empresa_id,
-        CASE WHEN origem.id IS NOT NULL AND (f.lead_id IS NULL OR fc.lead_id=f.lead_id)
-          THEN COALESCE(NULLIF(fc.valor_liberado, 0), NULLIF(fc.valor_financiado, 0), ficha_fallback.financiado)
-          WHEN validf.id IS NOT NULL THEN ficha_fallback.financiado
-          ELSE NULL END AS valor_financiado
+        f.created_at, f.loja, f.empresa_id
       FROM public.faturamentos f
-      LEFT JOIN public.fichas_credito fc ON fc.id=f.ficha_id
-      LEFT JOIN public.leads origem ON origem.id=fc.lead_id AND origem.empresa_id=f.empresa_id
-      LEFT JOIN public.leads validf ON validf.id=f.lead_id AND validf.empresa_id=f.empresa_id
-      LEFT JOIN LATERAL (
-        SELECT COALESCE(NULLIF(ff.valor_liberado,0),NULLIF(ff.valor_financiado,0)) AS financiado
-        FROM public.fichas_credito ff
-        WHERE ff.lead_id=COALESCE(validf.id,origem.id)
-          AND COALESCE(NULLIF(ff.valor_liberado,0),NULLIF(ff.valor_financiado,0)) IS NOT NULL
-        ORDER BY (ff.id=f.ficha_id) DESC,ff.id DESC LIMIT 1
-      ) ficha_fallback ON TRUE
       WHERE ${where.join(' AND ')}
       ORDER BY f.created_at DESC NULLS LAST
       LIMIT $${params.length}

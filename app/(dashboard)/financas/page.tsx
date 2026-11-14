@@ -114,6 +114,14 @@ export default function FinancasPage(){
  function promessaPendente(p:Promessa){return Math.max(0,Number(p.valor)-Number(p.recebido));}
  function agendadoAberto(v:Venda,c:string){return promessas.filter(p=>p.ativo&&p.lead_id===v.lead_id&&p.componente===c)
   .reduce((s,p)=>s+promessaPendente(p),0);}
+ // Calendário: somente compromissos pendentes. Mensalidade Aurox fica em Contas e boletos.
+ const eventosCalendario:EventoCalendario[]=[
+  ...manuais.filter(p=>p.status!=='pago'&&p.status!=='cancelado').map(p=>({
+    data:dataApenas(p.vencimento),tipo:p.tipo,descricao:p.descricao,
+    valor:Math.max(0,Number(p.valor||0)-Number(p.desconto||0)-Number(p.recebido||0))})),
+  ...promessas.filter(p=>p.ativo&&promessaPendente(p)>0.009).map(p=>({
+    data:dataApenas(p.vencimento),tipo:'entrada',
+    descricao:`${p.cliente} · ${nomesComponente[p.componente]}`,valor:promessaPendente(p)}))];
  function primeiroVencimento(){const d=new Date();d.setDate(d.getDate()+7);
   return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
  function abrirAgendamentoVenda(v:Venda,c:'entrada'|'boleto'|'financiamento'){
@@ -251,9 +259,9 @@ export default function FinancasPage(){
     {([['resumo','Visão geral'],['contas','Contas e boletos'],['vendas','Conciliação de vendas']] as const).map(([id,label])=><button
       key={id} className={`min-w-max rounded-lg px-4 py-2 text-sm ${aba===id?'bg-primary text-primary-foreground':'hover:bg-muted'}`} onClick={()=>setAba(id)}>{label}</button>)}
    </div>
-   {aba==='resumo'&&<div className="space-y-4">
+   {aba==='resumo'&&<div className="space-y-8">
     <div className="grid gap-4 lg:grid-cols-2">
-     <Bloco titulo="Próximas contas a pagar e receber" descricao="Somente compromissos manuais; a assinatura Aurox é mostrada separadamente.">
+     <Bloco titulo="Próximas contas a pagar e receber" descricao="Compromissos de clientes e da empresa. A mensalidade Aurox fica em Contas e boletos.">
       {proximos.slice(0,8).map(e=>e.tipo==='conta'?<LinhaParcela key={`parcela-${e.p.id}`} p={e.p}
         pagamentos={pagamentosPorParcela.get(e.p.id)||[]} onReceber={abrirParcela}
         onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>:
@@ -270,28 +278,26 @@ export default function FinancasPage(){
       {!vencidos.length&&<Vazio>Nenhuma pendência vencida.</Vazio>}
      </Bloco>
     </div>
-    <Bloco titulo="Calendário de vencimentos" descricao="Verde: valores a receber. Vermelho: despesas a pagar e qualquer conta vencida. Mensalidade Aurox fica em sua própria seção.">
-     <CalendarioFinanceiro mes={mesCalendario} onMes={setMesCalendario} dia={diaEscolhido} onDia={setDiaEscolhido}
-       eventos={[...manuais.filter(p=>p.status!=='pago'&&p.status!=='cancelado').map(p=>({data:dataApenas(p.vencimento),tipo:p.tipo,descricao:p.descricao,valor:Number(p.valor||0)-Number(p.desconto||0)-Number(p.recebido||0)})),
-        ...promessas.filter(p=>p.ativo&&promessaPendente(p)>0.009).map(p=>({data:dataApenas(p.vencimento),tipo:'entrada',descricao:`${p.cliente} · ${nomesComponente[p.componente]}`,valor:promessaPendente(p)}))]}/>
-    </Bloco>
-    <Bloco titulo="Assinatura Aurox" descricao="Contrato mensal protegido. As próximas competências são previsões, não doze cobranças atrasadas.">
-     {contratoAurox?<div className="flex flex-wrap items-center gap-6">
-      <p className="text-sm">Início do contrato: <strong>{mostrarData(contratoAurox.inicio)}</strong></p>
-      <p className="text-sm">Mensalidade: <strong>{reais(contratoAurox.valor)}</strong></p>
-      <p className="text-sm">Próximo vencimento: <strong>{mostrarData(proximaAurox?.vencimento)}</strong></p>
-      <span className="rounded-lg border px-2 py-1 text-xs">{contratoAurox.valor==null?'A definir pela plataforma':'Agendamento mensal ativo'}</span>
-     </div>:<Vazio>Contrato ainda não encontrado.</Vazio>}
-     {superadmin&&contratoAurox?.valor==null&&<div className="mt-4 flex flex-wrap items-end gap-2">
-       <Campo label="Valor mensal do contrato"><input type="number" min="0.01" step="0.01" className={input} value={preco} onChange={e=>setPreco(e.target.value)}/></Campo>
-       <Campo label="Loja"><select className={input} value={lojaAurox} onChange={e=>setLojaAurox(e.target.value)}>{lojas.map(x=><option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</select></Campo>
-       <button className={principal} onClick={()=>void definirAurox()} disabled={!preco}>Definir uma vez</button></div>}
-     <details className="mt-3 text-sm"><summary className="cursor-pointer text-primary">Consultar previsão e histórico das mensalidades</summary>
-      <div className="mt-2 space-y-2">{mensalidades.map(p=><div className="flex justify-between gap-3 border-b py-1.5" key={p.id}>
-       <span>{mostrarData(p.vencimento)} · Competência {p.numero}</span><span>{reais(p.valor)} · {p.status==='pago'?'Quitada':p.valor==null?'Prevista sem valor':'Pendente'}</span>
-       {p.valor!=null&&p.status!=='pago'&&superadmin&&<button className={btn} onClick={()=>abrirParcela(p)}>Registrar pagamento</button>}</div>)}</div>
-     </details>
-    </Bloco>
+    <section aria-label="Calendário financeiro" className="rounded-3xl border-2 border-primary/25 bg-card p-4 shadow-sm sm:p-6">
+     <header className="mb-6 space-y-2 border-b border-border/60 pb-5">
+      <p className="text-xs font-semibold uppercase tracking-[.15em] text-primary">Planejamento do mês</p>
+      <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Calendário financeiro</h2>
+      <p className="text-sm text-muted-foreground">Selecione um dia para consultar os vencimentos. As previsões não alteram o caixa antes da baixa.</p>
+      <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2 text-xs font-semibold">
+       <span className="flex items-center gap-2 text-emerald-500"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500"/> A receber</span>
+       <span className="flex items-center gap-2 text-rose-500"><span className="h-2.5 w-2.5 rounded-full bg-rose-500"/> A pagar</span>
+       <span className="flex items-center gap-2 text-rose-500"><span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-rose-500/30"/> Vencidas (a pagar ou receber)</span>
+      </div>
+     </header>
+     <CalendarioFinanceiro mes={mesCalendario} onMes={setMesCalendario} dia={diaEscolhido} onDia={setDiaEscolhido} eventos={eventosCalendario}/>
+    </section>
+    <section aria-label="Detalhes do dia selecionado" className="rounded-2xl border border-border border-l-4 border-l-primary bg-background/60 p-4 sm:p-6">
+     <header className="mb-3"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Detalhamento de vencimentos</p>
+      <h2 className="mt-1 text-lg font-bold">{diaEscolhido?`Movimentos previstos para ${mostrarData(diaEscolhido)}`:'Selecione uma data no calendário'}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">Aqui aparecem os compromissos do dia escolhido, separados do calendário.</p>
+     </header>
+     <DetalheDiaFinanceiro dia={diaEscolhido} eventos={eventosCalendario}/>
+    </section>
     <Bloco titulo="Últimos movimentos" descricao="Pagamentos datados conforme o filtro; estornos permanecem identificáveis.">
      {(d.movimentos||[]).slice(0,45).map(m=><div key={m.id} className="flex flex-wrap items-center gap-3 border-b py-2.5 last:border-0">
       <div className="min-w-40 flex-1"><p className="text-sm font-medium">{m.descricao||m.categoria}</p>
@@ -303,7 +309,7 @@ export default function FinancasPage(){
      {!d.movimentos.length&&<Vazio>Sem movimentos no período. Recebimento documental não é baixa de caixa.</Vazio>}
     </Bloco>
    </div>}
-   {aba==='contas'&&<div className="space-y-4">
+   {aba==='contas'&&<div className="space-y-6">
     {criando&&<form onSubmit={salvarConta} className="space-y-4 rounded-2xl border border-primary/30 bg-card p-5">
      <h2 className="font-semibold">{editando?'Editar compromisso':'Novo recebimento ou despesa'}</h2>
      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -326,8 +332,25 @@ export default function FinancasPage(){
      <div className="flex gap-2 justify-end"><button type="button" className={btn} onClick={()=>setCriando(false)}>Cancelar</button>
       <button type="submit" disabled={salvando} className={principal}>{salvando?'Salvando…':'Salvar compromisso'}</button></div>
     </form>}
-    <Bloco titulo="Compromissos" descricao="Pode editar ou encerrar o futuro; pagamentos realizados permanecem auditáveis.">
-     {d.agenda.map(a=><div key={a.id} className="flex flex-wrap items-center gap-3 border-b py-3 last:border-0">
+    <Bloco titulo="Assinatura Aurox" descricao="Contrato mensal protegido. As próximas competências são previsões, não doze cobranças atrasadas.">
+     {contratoAurox?<div className="flex flex-wrap items-center gap-6">
+      <p className="text-sm">Início do contrato: <strong>{mostrarData(contratoAurox.inicio)}</strong></p>
+      <p className="text-sm">Mensalidade: <strong>{reais(contratoAurox.valor)}</strong></p>
+      <p className="text-sm">Próximo vencimento: <strong>{mostrarData(proximaAurox?.vencimento)}</strong></p>
+      <span className="rounded-lg border px-2 py-1 text-xs">{contratoAurox.valor==null?'A definir pela plataforma':'Agendamento mensal ativo'}</span>
+     </div>:<Vazio>Contrato ainda não encontrado.</Vazio>}
+     {superadmin&&contratoAurox?.valor==null&&<div className="mt-4 flex flex-wrap items-end gap-2">
+       <Campo label="Valor mensal do contrato"><input type="number" min="0.01" step="0.01" className={input} value={preco} onChange={e=>setPreco(e.target.value)}/></Campo>
+       <Campo label="Loja"><select className={input} value={lojaAurox} onChange={e=>setLojaAurox(e.target.value)}>{lojas.map(x=><option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</select></Campo>
+       <button className={principal} onClick={()=>void definirAurox()} disabled={!preco}>Definir uma vez</button></div>}
+     <details className="mt-3 text-sm"><summary className="cursor-pointer text-primary">Consultar previsão e histórico das mensalidades</summary>
+      <div className="mt-2 space-y-2">{mensalidades.map(p=><div className="flex justify-between gap-3 border-b py-1.5" key={p.id}>
+       <span>{mostrarData(p.vencimento)} · Competência {p.numero}</span><span>{reais(p.valor)} · {p.status==='pago'?'Quitada':p.valor==null?'Prevista sem valor':'Pendente'}</span>
+       {p.valor!=null&&p.status!=='pago'&&superadmin&&<button className={btn} onClick={()=>abrirParcela(p)}>Registrar pagamento</button>}</div>)}</div>
+     </details>
+    </Bloco>
+    <Bloco titulo="Compromissos" descricao="Recebimentos e despesas agendados. A assinatura da plataforma é mostrada acima, separadamente.">
+     {d.agenda.filter(a=>a.origem!=='aurox').map(a=><div key={a.id} className="flex flex-wrap items-center gap-3 border-b py-3 last:border-0">
       <div className="min-w-40 flex-1"><strong className="text-sm">{a.descricao}</strong>
        <p className="text-xs text-muted-foreground">{a.tipo==='entrada'?'A receber':'A pagar'} · {a.forma} · {a.cliente||a.loja} · {a.frequencia==='mensal'?'mensal':'único'}</p></div>
       <strong>{reais(a.valor)}</strong>{a.origem==='manual'?<div className="flex gap-2">
@@ -339,8 +362,7 @@ export default function FinancasPage(){
      {manuais.map(p=><LinhaParcela key={p.id} p={p} pagamentos={pagamentosPorParcela.get(p.id)||[]} onReceber={abrirParcela}
       onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>)}
      {!manuais.length&&<Vazio>Sem parcelas manuais para este período.</Vazio>}
-     {mensalidades.length>0&&<details className="mt-5"><summary className="cursor-pointer text-sm text-primary">Ver mensalidade Aurox e previsões ({mensalidades.length})</summary>
-      {mensalidades.map(p=><div key={p.id} className="flex justify-between border-b py-2 text-xs"><span>{mostrarData(p.vencimento)}</span><span>{reais(p.valor)}</span><span>{p.valor==null?'Previsão':p.status}</span></div>)}</details>}
+
     </Bloco>
    </div>}
    {aba==='vendas'&&<div className="space-y-4">
@@ -499,7 +521,6 @@ function CalendarioFinanceiro({mes,onMes,dia,onDia,eventos}:{mes:string;onMes:(m
  const dias=[...Array(inicio).fill(null),...Array.from({length:total},(_,i)=>i+1)];
  function navegar(delta:number){const d=new Date(ano,mm-1+delta,1);onMes(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);onDia('');}
  const hoje=diaAtual();
- const selecionados=eventos.filter(e=>dia?e.data===dia:e.data.startsWith(mes)).sort((a,b)=>a.data.localeCompare(b.data));
  return <div className="space-y-4">
   <div className="flex items-center justify-between gap-2"><button type="button" className={btn} onClick={()=>navegar(-1)}>Anterior</button>
    <strong className="text-sm">{new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(new Date(ano,mm-1,1))}</strong>
@@ -513,16 +534,26 @@ function CalendarioFinanceiro({mes,onMes,dia,onDia,eventos}:{mes:string;onMes:(m
    const pagar=evs.length-receb;
    return <button type="button" key={data} onClick={()=>onDia(dia===data?'':data)}
     aria-label={`${numero} de ${mes}, ${evs.length} compromissos`}
-    className={`min-h-12 rounded-lg border p-1.5 text-left text-xs ${dia===data?'border-primary bg-primary/10':data===hoje?'border-primary/40 bg-muted/40':'border-border/60 bg-background/30'}`}>
+    className={`min-h-12 rounded-lg border p-1.5 text-left text-xs ${dia===data?'border-2 border-primary bg-primary/15 shadow-sm':data===hoje?'border-primary/60 bg-muted/50':'border-border/60 bg-background/30 hover:border-primary/50'}`}>
     <span className="font-medium">{numero}</span><div className="mt-1 flex flex-wrap gap-1">
      {receb>0&&<span title="Recebimentos" className="rounded-md bg-emerald-500/20 px-1 text-emerald-500">+{receb}</span>}
      {pagar>0&&<span title="Pagamentos ou vencidos" className="rounded-md bg-rose-500/20 px-1 text-rose-500">{pagar}</span>}
     </div></button>})}</div>
-  <div className="space-y-2"><p className="text-xs text-muted-foreground">{dia?`Compromissos de ${mostrarData(dia)}`:`Compromissos de ${mes.split('-').reverse().join('/')}`}</p>
-   {selecionados.slice(0,30).map((e,i)=>{const recebe=e.tipo==='entrada'&&e.data>=hoje;
-    return <div key={`${e.data}-${i}`} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-2 text-xs ${recebe?'border-emerald-500/30 text-emerald-500':'border-rose-500/30 text-rose-500'}`}>
-     <span>{mostrarData(e.data)} · {e.descricao}</span><strong>{recebe?'+':'−'}{reais(e.valor)}</strong></div>})}
-   {!selecionados.length&&<p className="text-xs text-muted-foreground">Sem vencimentos nesse recorte.</p>}
-  </div>
+
  </div>;
+}
+
+/** Separate drill-down: no second month-long list that looks like another calendar. */
+function DetalheDiaFinanceiro({dia,eventos}:{dia:string;eventos:EventoCalendario[]}){
+ const hoje=diaAtual();
+ if(!dia)return <div className="rounded-xl border border-dashed border-primary/25 bg-card/60 p-5 text-center text-sm text-muted-foreground">
+  Clique em uma data do calendário acima para ver valores e compromissos.</div>;
+ const itens=eventos.filter(e=>e.data===dia).sort((a,b)=>a.descricao.localeCompare(b.descricao));
+ if(!itens.length)return <Vazio>Sem vencimentos cadastrados para {mostrarData(dia)}.</Vazio>;
+ return <div className="space-y-2">{itens.map((e,i)=>{
+  const vencido=e.data<hoje,receber=e.tipo==='entrada'&&!vencido;
+  return <div key={`${e.data}-${i}`} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm ${receber?'border-emerald-500/30 bg-emerald-500/5':'border-rose-500/30 bg-rose-500/5'}`}>
+   <div><p className="font-semibold">{e.descricao}</p><p className={`mt-1 text-xs ${receber?'text-emerald-500':'text-rose-500'}`}>{vencido?'Vencida':receber?'A receber':'A pagar'}</p></div>
+   <strong className={receber?'text-emerald-500':'text-rose-500'}>{receber?'+':'−'}{reais(e.valor)}</strong>
+  </div>})}</div>;
 }

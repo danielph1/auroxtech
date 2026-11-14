@@ -180,7 +180,7 @@ export default function FaturamentoPage() {
     <div className="grid gap-3 md:grid-cols-2">
       {(Array.isArray(rows)?rows:[]).map((f:any)=><Card key={f.id} className="cursor-pointer transition hover:border-primary/50" onClick={()=>abrir(f.id)}><CardContent className="flex items-center justify-between gap-3 p-4 sm:p-5">
         <div className="min-w-0"><div className="truncate font-semibold">{f.nome}</div><p className="mt-1 text-sm text-muted-foreground">{f.marca} {f.modelo} · {f.placa}</p><p className="mt-2 text-xs text-muted-foreground">{f.vendedor_nome||'—'} · {f.created_at?new Date(f.created_at).toLocaleDateString('pt-BR'):'—'}</p></div>
-        <div className="shrink-0 text-right"><FileText className="ml-auto mb-2 h-5 w-5 text-primary"/><p className="text-xs text-muted-foreground">Valor financiado</p><p className="text-sm font-medium">{f.valor_financiado != null && Number.isFinite(Number(f.valor_financiado)) ? `R$ ${Number(f.valor_financiado).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}` : 'Não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{f.status||'emitido'}</p></div>
+        <div className="shrink-0 text-right"><FileText className="ml-auto mb-2 h-5 w-5 text-primary"/><p className="mt-1 text-xs text-muted-foreground">{f.status||'emitido'}</p></div>
       </CardContent></Card>)}
     </div>
     {!isLoading&&!erroLista&&(!Array.isArray(rows)||!rows.length)&&<p className="rounded-xl border p-8 text-center text-sm text-muted-foreground">Nenhum faturamento encontrado para esta empresa.</p>}
