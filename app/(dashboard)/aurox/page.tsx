@@ -1,478 +1,136 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { CarLoader } from '@/components/car-loader';
 import { toast } from 'sonner';
-import { Building2, Plus, Power, PowerOff, X, Trash2 } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronRight, CircleHelp, Eye, EyeOff, MapPin, Plus, Power, PowerOff, Search, ShieldCheck, Store, Trash2, UsersRound, X } from 'lucide-react';
+import './aurox-empresas-v4.css';
 
-type LojaField = { codigo: string; nome: string; plano?: string };
+type LojaField = {codigo:string;nome:string;plano?:string};
+type Empresa = {id:number;nome:string;slug?:string|null;ativo:boolean;qtd_lojas?:number;qtd_usuarios?:number;plano?:string};
+type Detalhe = Empresa & {lojas?:Array<{id:number;codigo:string;nome:string;plano?:string;ativo:boolean}>;usuarios?:Array<{id:number;nome:string;login:string;tipo:string;status?:string;ativo:boolean}>};
+const planos = ['vanguard','command','black'] as const;
+const planoNome = (value?:string|null) => ({vanguard:'Vanguard',command:'Command',black:'Black'}[String(value||'').toLowerCase()] || 'Black');
 
-export default function AuroxPage() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  const isSuper = String(user?.tipo || '').toLowerCase().trim() === 'superadmin';
+export default function AuroxPage(){
+ const {user} = useAuth();const qc=useQueryClient();const isSuper=String(user?.tipo||'').toLowerCase().trim()==='superadmin';
+ const empresasQ=useQuery<Empresa[]>({queryKey:['aurox-empresas'],enabled:isSuper,queryFn:async()=> (await api.get('/aurox/empresas')).data as Empresa[]});
+ const empresas=Array.isArray(empresasQ.data)?empresasQ.data:[];
+ const [termo,setTermo]=useState('');const [status,setStatus]=useState<'todos'|'ativos'|'inativos'>('todos');
+ const [selected,setSelected]=useState<number|null>(null);const [openNovo,setOpenNovo]=useState(false);
+ const [form,setForm]=useState({nome:'',slug:'',admin_nome:'',admin_login:'',admin_senha:'',plano:'black'});
+ const [lojas,setLojas]=useState<LojaField[]>([{codigo:'001',nome:'',plano:'black'}]);
+ const [saving,setSaving]=useState(false);const [mostrarSenha,setMostrarSenha]=useState(false);
+ const [confirm,setConfirm]=useState<{id:number;nome:string;ativo:boolean}|null>(null);
+ const [senhaConfirm,setSenhaConfirm]=useState('');const [confirming,setConfirming]=useState(false);
+ const [novaLoja,setNovaLoja]=useState({codigo:'',nome:'',plano:'black'});const [addLojaBusy,setAddLojaBusy]=useState(false);
+ const detalheQ=useQuery<Detalhe>({queryKey:['aurox-empresa',selected],enabled:!!selected&&isSuper,queryFn:async()=> (await api.get(`/aurox/empresas/${selected}`)).data as Detalhe});
+ const detalhe=detalheQ.data;
+ const lista=useMemo(()=>empresas.filter(e=>{
+  if(status==='ativos'&&!e.ativo)return false;if(status==='inativos'&&e.ativo)return false;
+  const q=termo.trim().toLocaleLowerCase('pt-BR');return !q||`${e.nome} ${e.slug||''}`.toLocaleLowerCase('pt-BR').includes(q);
+ }),[empresas,status,termo]);
+ const resumo=useMemo(()=>({total:empresas.length,ativos:empresas.filter(e=>e.ativo).length,lojas:empresas.reduce((a,e)=>a+Number(e.qtd_lojas||0),0),usuarios:empresas.reduce((a,e)=>a+Number(e.qtd_usuarios||0),0)}),[empresas]);
 
-  const { data: empresas = [], isLoading, error } = useQuery({
-    queryKey: ['aurox-empresas'],
-    queryFn: async () => (await api.get('/aurox/empresas')).data,
-    enabled: isSuper,
-  });
-
-  const [form, setForm] = useState({
-    nome: '',
-    slug: '',
-    admin_nome: '',
-    admin_login: '',
-    admin_senha: '',
-    plano: 'black',
-  });
-  const [lojas, setLojas] = useState<LojaField[]>([{ codigo: '001', nome: '', plano: 'black' }]);
-  const [saving, setSaving] = useState(false);
-  const [selected, setSelected] = useState<number | null>(null);
-
-  // confirmação de senha (desativar empresa)
-  const [confirm, setConfirm] = useState<{ id: number; nome: string; ativo: boolean } | null>(null);
-  const [senhaConfirm, setSenhaConfirm] = useState('');
-  const [confirming, setConfirming] = useState(false);
-
-  // nova loja no detalhe
-  const [novaLoja, setNovaLoja] = useState({ codigo: '', nome: '', plano: 'black' });
-  const [addLojaBusy, setAddLojaBusy] = useState(false);
-
-  const { data: detalhe } = useQuery({
-    queryKey: ['aurox-empresa', selected],
-    queryFn: async () => (await api.get(`/aurox/empresas/${selected}`)).data,
-    enabled: !!selected && isSuper,
-  });
-
-  if (!isSuper) {
-    return (
-      <div className="mx-auto max-w-lg space-y-3 p-6">
-        <h1 className="text-2xl font-bold">Aurox</h1>
-        <p className="text-sm text-muted-foreground">
-          Área exclusiva da plataforma (tipo <code>superadmin</code>).
-        </p>
-      </div>
-    );
-  }
-
-  async function criarEmpresa() {
-    if (!form.nome || !form.admin_login || !form.admin_senha) {
-      toast.error('Nome da empresa, login e senha do admin são obrigatórios');
-      return;
-    }
-    const lojasValidas = lojas
-      .map((l) => ({
-        codigo: l.codigo.trim(),
-        nome: (l.nome || l.codigo).trim(),
-        plano: l.plano || form.plano || 'black',
-      }))
-      .filter((l) => l.codigo);
-    if (!lojasValidas.length) {
-      toast.error('Informe ao menos uma loja');
-      return;
-    }
-    setSaving(true);
-    try {
-      const { data } = await api.post('/aurox/empresas', {
-        nome: form.nome,
-        slug: form.slug || undefined,
-        plano: form.plano || 'black',
-        lojas: lojasValidas,
-        admin: {
-          nome: form.admin_nome || form.admin_login,
-          login: form.admin_login,
-          senha: form.admin_senha,
-        },
-      });
-      toast.success(`Empresa criada: ${data.empresa?.nome}`);
-      setForm({ nome: '', slug: '', admin_nome: '', admin_login: '', admin_senha: '', plano: 'black' });
-      setLojas([{ codigo: '001', nome: '', plano: 'black' }]);
-      qc.invalidateQueries({ queryKey: ['aurox-empresas'] });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Erro ao criar');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function confirmarToggle() {
-    if (!confirm) return;
-    if (!senhaConfirm) {
-      toast.error('Digite sua senha');
-      return;
-    }
-    setConfirming(true);
-    try {
-      await api.post('/aurox/confirm-senha', { senha: senhaConfirm });
-      await api.patch(`/aurox/empresas/${confirm.id}`, { ativo: !confirm.ativo });
-      toast.success(
-        confirm.ativo
-          ? 'Contrato desativado — usuários sem acesso (dados preservados)'
-          : 'Contrato reativado',
-      );
-      setConfirm(null);
-      setSenhaConfirm('');
-      qc.invalidateQueries({ queryKey: ['aurox-empresas'] });
-      if (selected === confirm.id) qc.invalidateQueries({ queryKey: ['aurox-empresa', confirm.id] });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Senha incorreta ou erro');
-    } finally {
-      setConfirming(false);
-    }
-  }
-
-  async function addLojaNaEmpresa() {
-    if (!selected || !novaLoja.codigo.trim()) {
-      toast.error('Código da loja obrigatório');
-      return;
-    }
-    setAddLojaBusy(true);
-    try {
-      await api.post(`/aurox/empresas/${selected}`, {
-        acao: 'loja',
-        codigo: novaLoja.codigo.trim(),
-        nome: novaLoja.nome.trim() || novaLoja.codigo.trim(),
-        plano: novaLoja.plano || 'black',
-      });
-      toast.success('Loja adicionada');
-      setNovaLoja({ codigo: '', nome: '', plano: 'black' });
-      qc.invalidateQueries({ queryKey: ['aurox-empresa', selected] });
-      qc.invalidateQueries({ queryKey: ['aurox-empresas'] });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Erro ao adicionar loja');
-    } finally {
-      setAddLojaBusy(false);
-    }
-  }
-
-  return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-24">
-      <header>
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <Building2 className="h-8 w-8 text-primary" /> Aurox — Empresas
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Contratos B2B · planos por loja: Vanguard · Command · Black · desativar corta acesso e preserva dados
-        </p>
-      </header>
-
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          <h2 className="font-semibold">Nova empresa</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <Label>Nome da empresa *</Label>
-              <Input
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Nome da nova empresa"
-              />
-            </div>
-            <div>
-              <Label>Slug (opcional)</Label>
-              <Input
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="identificador-da-empresa"
-              />
-            </div>
-            <div>
-              <Label>Nome do admin</Label>
-              <Input
-                value={form.admin_nome}
-                onChange={(e) => setForm({ ...form, admin_nome: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Login do admin *</Label>
-              <Input
-                value={form.admin_login}
-                onChange={(e) => setForm({ ...form, admin_login: e.target.value })}
-                placeholder="login.do.administrador"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Senha do admin *</Label>
-              <Input
-                type="password"
-                value={form.admin_senha}
-                onChange={(e) => setForm({ ...form, admin_senha: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-              <Label>Plano padrão das lojas *</Label>
-              <select
-                className="mt-1 flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                value={form.plano}
-                onChange={(e) => {
-                  const plano = e.target.value;
-                  setForm({ ...form, plano });
-                  setLojas((prev) => prev.map((l) => ({ ...l, plano })));
-                }}
-              >
-                <option value="vanguard">Vanguard</option>
-                <option value="command">Command</option>
-                <option value="black">Black</option>
-              </select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pode ajustar o plano de cada loja depois no detalhe.
-              </p>
-            </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Lojas (pode ter várias)</Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setLojas([...lojas, { codigo: '', nome: '' }])}
-              >
-                <Plus className="mr-1 h-3 w-3" /> Adicionar loja
-              </Button>
-            </div>
-            {lojas.map((l, idx) => (
-              <div key={idx} className="flex flex-wrap items-end gap-2">
-                <div className="min-w-[120px] flex-1">
-                  <Label className="text-xs">Código *</Label>
-                  <Input
-                    value={l.codigo}
-                    onChange={(e) => {
-                      const next = [...lojas];
-                      next[idx] = { ...next[idx], codigo: e.target.value };
-                      setLojas(next);
-                    }}
-                    placeholder="381"
-                  />
-                </div>
-                <div className="min-w-[140px] flex-[2]">
-                  <Label className="text-xs">Nome da loja</Label>
-                  <Input
-                    value={l.nome}
-                    onChange={(e) => {
-                      const next = [...lojas];
-                      next[idx] = { ...next[idx], nome: e.target.value };
-                      setLojas(next);
-                    }}
-                    placeholder="Unidade Barra"
-                  />
-                </div>
-                {lojas.length > 1 && (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setLojas(lojas.filter((_, i) => i !== idx))}
-                  >
-                    <Trash2 className="h-4 w-4 text-rose-400" />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <Button onClick={criarEmpresa} disabled={saving}>
-            <Plus className="mr-2 h-4 w-4" />
-            {saving ? 'Criando…' : 'Criar empresa + lojas + admin'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {isLoading && <CarLoader compact />}
-      {error && <p className="text-rose-400">Erro ao listar empresas.</p>}
-
-      <div className="grid gap-3">
-        {(empresas as any[]).map((e) => (
-          <Card
-            key={e.id}
-            className={`cursor-pointer transition hover:border-primary/50 ${selected === e.id ? 'border-primary' : ''}`}
-            onClick={() => setSelected(selected === e.id ? null : e.id)}
-          >
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <div className="font-semibold">{e.nome}</div>
-                <div className="text-xs text-muted-foreground">
-                  {e.slug} · {e.qtd_lojas ?? 0} loja(s) · {e.qtd_usuarios ?? 0} usuário(s)
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={e.ativo ? 'default' : 'destructive'}>
-                  {e.ativo ? 'ativo' : 'cancelado'}
-                </Badge>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  title={e.ativo ? 'Desativar contrato' : 'Reativar'}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    setConfirm({ id: e.id, nome: e.nome, ativo: !!e.ativo });
-                    setSenhaConfirm('');
-                  }}
-                >
-                  {e.ativo ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {selected && detalhe && (
-        <Card className="relative border-primary/40">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="absolute right-2 top-2"
-            onClick={() => setSelected(null)}
-            title="Fechar"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <CardContent className="space-y-4 p-5 pt-10">
-            <h3 className="font-semibold">{detalhe.nome} — detalhe</h3>
-
-            <div>
-              <div className="mb-2 text-xs text-muted-foreground">Lojas e planos</div>
-              <ul className="mb-3 space-y-2 text-sm">
-                {(detalhe.lojas || []).map((l: any) => (
-                  <li
-                    key={l.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1.5"
-                  >
-                    <div>
-                      <code className="rounded bg-muted px-1">{l.codigo}</code>{' '}
-                      {l.nome || ''}
-                      {!l.ativo && <span className="text-rose-400"> (inativa)</span>}
-                    </div>
-                    <select
-                      className="rounded border border-border bg-background px-2 py-1 text-xs"
-                      value={String(l.plano || 'black').toLowerCase()}
-                      onChange={async (e) => {
-                        try {
-                          await api.post(`/aurox/empresas/${selected}`, {
-                            acao: 'plano_loja',
-                            loja_id: l.id,
-                            plano: e.target.value,
-                          });
-                          toast.success(`Plano da loja ${l.codigo}: ${e.target.value}`);
-                          qc.invalidateQueries({ queryKey: ['aurox-empresa', selected] });
-                        } catch (err: any) {
-                          toast.error(err?.response?.data?.error || 'Erro ao mudar plano');
-                        }
-                      }}
-                    >
-                      <option value="vanguard">Vanguard</option>
-                      <option value="command">Command</option>
-                      <option value="black">Black</option>
-                    </select>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
-                <div className="min-w-[100px] flex-1">
-                  <Label className="text-xs">Nova loja — código</Label>
-                  <Input
-                    value={novaLoja.codigo}
-                    onChange={(e) => setNovaLoja({ ...novaLoja, codigo: e.target.value })}
-                    placeholder="NITER"
-                  />
-                </div>
-                <div className="min-w-[120px] flex-[2]">
-                  <Label className="text-xs">Nome</Label>
-                  <Input
-                    value={novaLoja.nome}
-                    onChange={(e) => setNovaLoja({ ...novaLoja, nome: e.target.value })}
-                    placeholder="Unidade Niterói"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Plano</Label>
-                  <select
-                    className="block rounded border border-border bg-background px-2 py-2 text-sm"
-                    value={novaLoja.plano}
-                    onChange={(e) => setNovaLoja({ ...novaLoja, plano: e.target.value })}
-                  >
-                    <option value="vanguard">Vanguard</option>
-                    <option value="command">Command</option>
-                    <option value="black">Black</option>
-                  </select>
-                </div>
-                <Button size="sm" onClick={addLojaNaEmpresa} disabled={addLojaBusy}>
-                  <Plus className="mr-1 h-3 w-3" /> Adicionar
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-1 text-xs text-muted-foreground">Usuários</div>
-              <ul className="max-h-48 overflow-y-auto text-sm">
-                {(detalhe.usuarios || []).map((x: any) => (
-                  <li key={x.id}>
-                    {x.nome} · <code>{x.login}</code> · {x.tipo} · {x.status || (x.ativo ? 'ativo' : 'off')}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Modal confirmação senha */}
-      {confirm && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setConfirm(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">
-              {confirm.ativo ? 'Desativar contrato?' : 'Reativar contrato?'}
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Empresa: <strong>{confirm.nome}</strong>
-              {confirm.ativo
-                ? '. Todos os usuários perderão o acesso. Os dados permanecem salvos.'
-                : '. Os usuários voltarão a poder entrar.'}
-            </p>
-            <div className="mt-4">
-              <Label>Confirme com sua senha</Label>
-              <Input
-                type="password"
-                value={senhaConfirm}
-                onChange={(e) => setSenhaConfirm(e.target.value)}
-                placeholder="Sua senha de superadmin"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && confirmarToggle()}
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConfirm(null)}>
-                Cancelar
-              </Button>
-              <Button
-                variant={confirm.ativo ? 'destructive' : 'default'}
-                disabled={confirming}
-                onClick={confirmarToggle}
-              >
-                {confirming ? '…' : confirm.ativo ? 'Desativar' : 'Reativar'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+ async function criarEmpresa(){
+  if(!form.nome.trim()||!form.admin_login.trim()||!form.admin_senha){toast.error('Informe o nome da empresa, o login e a senha do administrador.');return;}
+  const lojasValidas=lojas.map(l=>({codigo:l.codigo.trim(),nome:(l.nome||l.codigo).trim(),plano:l.plano||form.plano||'black'})).filter(l=>l.codigo);
+  if(!lojasValidas.length){toast.error('Adicione pelo menos uma loja.');return;}
+  setSaving(true);
+  try{
+   const {data}=await api.post('/aurox/empresas',{nome:form.nome,slug:form.slug||undefined,plano:form.plano,lojas:lojasValidas,admin:{nome:form.admin_nome||form.admin_login,login:form.admin_login,senha:form.admin_senha}});
+   toast.success(`Empresa criada: ${data.empresa?.nome||form.nome}`);
+   setForm({nome:'',slug:'',admin_nome:'',admin_login:'',admin_senha:'',plano:'black'});
+   setLojas([{codigo:'001',nome:'',plano:'black'}]);setMostrarSenha(false);setOpenNovo(false);
+   await qc.invalidateQueries({queryKey:['aurox-empresas']});if(data.empresa?.id)setSelected(Number(data.empresa.id));
+  }catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível criar a empresa.');}
+  finally{setSaving(false)}
+ }
+ async function confirmarToggle(){
+  if(!confirm)return;if(!senhaConfirm){toast.error('Informe sua senha para continuar.');return;}
+  setConfirming(true);
+  try{
+   await api.post('/aurox/confirm-senha',{senha:senhaConfirm});
+   await api.patch(`/aurox/empresas/${confirm.id}`,{ativo:!confirm.ativo});
+   toast.success(confirm.ativo?'Contrato desativado. Dados preservados.':'Contrato reativado.');
+   const id=confirm.id;setConfirm(null);setSenhaConfirm('');
+   await Promise.all([qc.invalidateQueries({queryKey:['aurox-empresas']}),qc.invalidateQueries({queryKey:['aurox-empresa',id]})]);
+  }catch(e:any){toast.error(e?.response?.data?.error||'Senha incorreta ou erro ao atualizar contrato.');}
+  finally{setConfirming(false)}
+ }
+ async function addLojaNaEmpresa(){
+  if(!selected||!novaLoja.codigo.trim()){toast.error('Código da loja obrigatório.');return;}
+  setAddLojaBusy(true);
+  try{
+   await api.post(`/aurox/empresas/${selected}`,{acao:'loja',codigo:novaLoja.codigo.trim(),nome:novaLoja.nome.trim()||novaLoja.codigo.trim(),plano:novaLoja.plano});
+   toast.success('Loja adicionada.');setNovaLoja({codigo:'',nome:'',plano:'black'});
+   await Promise.all([qc.invalidateQueries({queryKey:['aurox-empresa',selected]}),qc.invalidateQueries({queryKey:['aurox-empresas']})]);
+  }catch(e:any){toast.error(e?.response?.data?.error||'Erro ao adicionar loja.');}
+  finally{setAddLojaBusy(false)}
+ }
+ async function mudarPlano(lojaId:number,plano:string,codigo:string){
+  if(!selected)return;
+  try{await api.post(`/aurox/empresas/${selected}`,{acao:'plano_loja',loja_id:lojaId,plano});toast.success(`Plano da loja ${codigo}: ${planoNome(plano)}`);await qc.invalidateQueries({queryKey:['aurox-empresa',selected]});}
+  catch(e:any){toast.error(e?.response?.data?.error||'Erro ao mudar plano.');}
+ }
+ if(!isSuper)return <main className="aurox-gestao-v4"><div className="aurox-v4-denied"><ShieldCheck size={27}/><h1>Área administrativa Aurox</h1><p>Esta seção está disponível exclusivamente para o superadmin da plataforma.</p><Link href="/inicio">Voltar à Visão Geral</Link></div></main>;
+ return <main className="aurox-gestao-v4">
+  <header className="aurox-v4-head"><div><div className="aurox-v4-eyebrow"><ShieldCheck size={14}/> ADMINISTRAÇÃO DA PLATAFORMA</div><h1>Gestão Aurox</h1><p>Contratos, concessionárias, lojas e acesso em um painel reservado à plataforma.</p></div>
+   <Button type="button" onClick={()=>setOpenNovo(true)}><Plus size={17}/> Nova empresa</Button>
+  </header>
+  <section className="aurox-v4-summary" aria-label="Resumo da plataforma">
+   <div><span className="aurox-v4-summary-icon"><Building2 size={20}/></span><small>Empresas cadastradas</small><strong>{empresasQ.isLoading?'…':resumo.total}</strong><span>Contratos registrados</span></div>
+   <div><span className="aurox-v4-summary-icon green"><CheckCircle2 size={20}/></span><small>Contratos ativos</small><strong>{empresasQ.isLoading?'…':resumo.ativos}</strong><span>Com acesso habilitado</span></div>
+   <div><span className="aurox-v4-summary-icon"><Store size={20}/></span><small>Lojas cadastradas</small><strong>{empresasQ.isLoading?'…':resumo.lojas}</strong><span>Em todas as empresas</span></div>
+   <div><span className="aurox-v4-summary-icon"><UsersRound size={20}/></span><small>Usuários ativos</small><strong>{empresasQ.isLoading?'…':resumo.usuarios}</strong><span>Vinculados a empresas</span></div>
+  </section>
+  <div className="aurox-v4-grid">
+   <section className="aurox-v4-list">
+    <div className="aurox-v4-pane-head"><div><h2>Concessionárias</h2><p>Selecione uma empresa para ver lojas, planos e usuários.</p></div><span>{lista.length}</span></div>
+    <div className="aurox-v4-filters"><div className="aurox-v4-search"><Search size={17}/><input aria-label="Pesquisar empresas" placeholder="Buscar empresa ou identificador" value={termo} onChange={e=>setTermo(e.target.value)}/></div><div className="aurox-v4-tabs"><button className={status==='todos'?'active':''} onClick={()=>setStatus('todos')}>Todas</button><button className={status==='ativos'?'active':''} onClick={()=>setStatus('ativos')}>Ativas</button><button className={status==='inativos'?'active':''} onClick={()=>setStatus('inativos')}>Inativas</button></div></div>
+    <div className="aurox-v4-company-list">
+     {empresasQ.isLoading?<p className="aurox-v4-placeholder">Carregando empresas…</p>:empresasQ.isError?<p className="aurox-v4-placeholder aurox-v4-error">Erro ao carregar empresas. Atualize a página.</p>:lista.length===0?<p className="aurox-v4-placeholder">Nenhuma empresa corresponde ao filtro.</p>:lista.map(e=><article className={`aurox-v4-company${selected===e.id?' selected':''}`} key={e.id}>
+      <button className="aurox-v4-company-select" type="button" aria-current={selected===e.id?'true':undefined} onClick={()=>setSelected(e.id)}><span className="aurox-v4-company-avatar"><Building2 size={18}/></span><span className="aurox-v4-company-copy"><strong>{e.nome}</strong><small>{e.slug||'Sem identificador'}</small><span><Store size={13}/> {Number(e.qtd_lojas||0)} loja(s) <UsersRound size={13}/> {Number(e.qtd_usuarios||0)} usuário(s)</span></span><ChevronRight size={17}/></button>
+      <div className="aurox-v4-company-actions"><span className={`aurox-v4-state${e.ativo?' on':' off'}`}>{e.ativo?'Ativa':'Inativa'}</span><button type="button" title={e.ativo?'Desativar contrato':'Reativar contrato'} aria-label={`${e.ativo?'Desativar':'Reativar'} ${e.nome}`} onClick={()=>{setConfirm({id:e.id,nome:e.nome,ativo:!!e.ativo});setSenhaConfirm('')}}>{e.ativo?<PowerOff size={15}/>:<Power size={15}/>}</button></div>
+     </article>)}
     </div>
-  );
+   </section>
+   <section className="aurox-v4-detail">
+    {!selected?<div className="aurox-v4-empty"><span><Building2 size={28}/></span><h2>Detalhes da empresa</h2><p>Selecione uma concessionária para gerenciar as lojas, consultar usuários e ajustar os planos contratados.</p></div>:detalheQ.isLoading?<p className="aurox-v4-placeholder">Carregando detalhes…</p>:detalheQ.isError||!detalhe?<p className="aurox-v4-placeholder aurox-v4-error">Falha ao carregar os detalhes desta empresa.</p>:<>
+     <div className="aurox-v4-detail-head"><div><small>EMPRESA SELECIONADA</small><h2>{detalhe.nome}</h2><p>{detalhe.slug||'Identificador não informado'}</p></div><span className={`aurox-v4-state${detalhe.ativo?' on':' off'}`}>{detalhe.ativo?'Contrato ativo':'Contrato inativo'}</span></div>
+     <div className="aurox-v4-detail-block"><div className="aurox-v4-block-head"><div><h3><Store size={17}/> Lojas e planos</h3><p>Os planos são aplicados por loja.</p></div><span>{detalhe.lojas?.length||0} loja(s)</span></div>
+      <div className="aurox-v4-stores">{(detalhe.lojas||[]).map(l=><div className="aurox-v4-store" key={l.id}><span className="aurox-v4-store-icon"><Store size={17}/></span><div><strong>{l.nome||l.codigo}</strong><small>Código {l.codigo}{l.ativo===false?' · Inativa':''}</small></div><select aria-label={`Plano da loja ${l.codigo}`} value={String(l.plano||'black').toLowerCase()} onChange={e=>void mudarPlano(l.id,e.target.value,l.codigo)}>{planos.map(p=><option key={p} value={p}>{planoNome(p)}</option>)}</select></div>)}
+       {(detalhe.lojas||[]).length===0&&<p className="aurox-v4-muted">Nenhuma loja vinculada.</p>}</div>
+      <div className="aurox-v4-add-store"><h4>Adicionar loja</h4><div><label><span>Código *</span><Input placeholder="381" value={novaLoja.codigo} onChange={e=>setNovaLoja({...novaLoja,codigo:e.target.value})}/></label><label><span>Nome</span><Input placeholder="Unidade" value={novaLoja.nome} onChange={e=>setNovaLoja({...novaLoja,nome:e.target.value})}/></label><label><span>Plano</span><select value={novaLoja.plano} onChange={e=>setNovaLoja({...novaLoja,plano:e.target.value})}>{planos.map(p=><option key={p} value={p}>{planoNome(p)}</option>)}</select></label><Button type="button" onClick={addLojaNaEmpresa} disabled={addLojaBusy||!novaLoja.codigo.trim()}><Plus size={15}/>{addLojaBusy?'Adicionando…':'Adicionar'}</Button></div></div>
+     </div>
+     <div className="aurox-v4-detail-block"><div className="aurox-v4-block-head"><div><h3><UsersRound size={17}/> Usuários vinculados</h3><p>Consulta de contas pertencentes a esta empresa.</p></div><span>{detalhe.usuarios?.length||0} usuário(s)</span></div>
+      <div className="aurox-v4-users">{(detalhe.usuarios||[]).map(u=><div className="aurox-v4-user" key={u.id}><span className="aurox-v4-user-avatar">{String(u.nome||u.login||'?')[0].toUpperCase()}</span><div><strong>{u.nome||u.login}</strong><small>@{u.login} · {u.tipo}</small></div><span className={`aurox-v4-state${u.ativo?' on':' off'}`}>{u.status|| (u.ativo?'Ativo':'Inativo')}</span></div>)}
+       {(detalhe.usuarios||[]).length===0&&<p className="aurox-v4-muted">Nenhum usuário vinculado.</p>}</div>
+     </div>
+    </>}
+   </section>
+  </div>
+  <p className="aurox-v4-disclaimer"><ShieldCheck size={15}/> Desativar contrato bloqueia o acesso da empresa e preserva os registros. Essa ação exige sua senha.</p>
+
+  {openNovo&&<div className="aurox-v4-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)setOpenNovo(false)}}><div className="aurox-v4-modal" role="dialog" aria-modal="true" aria-labelledby="aurox-v4-criar-title">
+   <header><div><small>CADASTRO DA PLATAFORMA</small><h2 id="aurox-v4-criar-title">Nova empresa</h2><p>Crie o contrato, as lojas e o primeiro administrador de uma só vez.</p></div><button type="button" aria-label="Fechar" onClick={()=>setOpenNovo(false)} disabled={saving}><X size={19}/></button></header>
+   <div className="aurox-v4-modal-body"><div className="aurox-v4-form-heading"><Building2 size={17}/> Dados da concessionária</div><div className="aurox-v4-form-grid"><label><span>Nome da empresa *</span><Input autoFocus value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex.: Automóveis Centro"/></label><label><span>Identificador (opcional)</span><Input value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} placeholder="automoveis-centro"/></label></div>
+    <div className="aurox-v4-form-heading"><UsersRound size={17}/> Administrador inicial</div><div className="aurox-v4-form-grid"><label><span>Nome do administrador</span><Input value={form.admin_nome} onChange={e=>setForm({...form,admin_nome:e.target.value})} placeholder="Nome completo"/></label><label><span>Login do administrador *</span><Input value={form.admin_login} onChange={e=>setForm({...form,admin_login:e.target.value})} autoCapitalize="none" placeholder="usuario.admin"/></label><label className="aurox-v4-full"><span>Senha inicial *</span><div className="aurox-v4-password"><Input type={mostrarSenha?'text':'password'} value={form.admin_senha} onChange={e=>setForm({...form,admin_senha:e.target.value})} autoComplete="new-password" placeholder="Mínimo de 6 caracteres"/><button type="button" aria-label={mostrarSenha?'Ocultar senha':'Mostrar senha'} onClick={()=>setMostrarSenha(v=>!v)}>{mostrarSenha?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label></div>
+    <div className="aurox-v4-form-heading"><Store size={17}/> Lojas e contrato</div><div className="aurox-v4-form-grid"><label className="aurox-v4-full"><span>Plano inicial *</span><select value={form.plano} onChange={e=>{const p=e.target.value;setForm({...form,plano:p});setLojas(prev=>prev.map(l=>({...l,plano:p})))}}>{planos.map(p=><option key={p} value={p}>{planoNome(p)}</option>)}</select></label></div>
+    <div className="aurox-v4-loja-modal-list">{lojas.map((l,index)=><div key={index}><label><span>Código *</span><Input value={l.codigo} onChange={e=>setLojas(prev=>prev.map((o,i)=>i===index?{...o,codigo:e.target.value}:o))} placeholder="381"/></label><label><span>Nome da loja</span><Input value={l.nome} onChange={e=>setLojas(prev=>prev.map((o,i)=>i===index?{...o,nome:e.target.value}:o))} placeholder="Unidade"/></label><label><span>Plano</span><select value={l.plano||form.plano} onChange={e=>setLojas(prev=>prev.map((o,i)=>i===index?{...o,plano:e.target.value}:o))}>{planos.map(p=><option key={p} value={p}>{planoNome(p)}</option>)}</select></label>{lojas.length>1&&<button type="button" aria-label={`Remover loja ${index+1}`} title="Remover loja" onClick={()=>setLojas(prev=>prev.filter((_,i)=>i!==index))}><Trash2 size={16}/></button>}</div>)}</div>
+    <button type="button" className="aurox-v4-add-another" onClick={()=>setLojas(prev=>[...prev,{codigo:'',nome:'',plano:form.plano}])}><Plus size={16}/> Adicionar outra loja</button>
+   </div><footer><Button variant="outline" onClick={()=>setOpenNovo(false)} disabled={saving}>Cancelar</Button><Button onClick={criarEmpresa} disabled={saving}>{saving?'Criando empresa…':'Criar empresa e acessos'}</Button></footer>
+  </div></div>}
+  {confirm&&<div className="aurox-v4-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!confirming)setConfirm(null)}}><div className="aurox-v4-modal aurox-v4-modal-small" role="dialog" aria-modal="true" aria-labelledby="aurox-v4-confirm-title">
+   <header><div><small>CONTRATO E ACESSO</small><h2 id="aurox-v4-confirm-title">{confirm.ativo?'Desativar contrato?':'Reativar contrato?'}</h2><p><strong>{confirm.nome}</strong> — {confirm.ativo?'os funcionários perderão o acesso, mas os registros serão preservados.':'o acesso poderá ser restabelecido conforme os usuários ativos.'}</p></div><button type="button" aria-label="Fechar" onClick={()=>setConfirm(null)} disabled={confirming}><X size={19}/></button></header>
+   <div className="aurox-v4-modal-body"><label className="aurox-v4-confirm-label"><span>Confirme com sua senha de superadmin</span><Input autoFocus type="password" autoComplete="current-password" value={senhaConfirm} onChange={e=>setSenhaConfirm(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void confirmarToggle()}} placeholder="Sua senha"/></label></div>
+   <footer><Button variant="outline" onClick={()=>setConfirm(null)} disabled={confirming}>Cancelar</Button><Button onClick={confirmarToggle} disabled={confirming} variant={confirm.ativo?'destructive':'default'}>{confirming?'Confirmando…':confirm.ativo?'Desativar contrato':'Reativar contrato'}</Button></footer>
+  </div></div>}
+ </main>;
 }

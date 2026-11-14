@@ -1,125 +1,100 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { compressAvatar } from '@/lib/compress-image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { useI18n } from '@/contexts/i18n-context';
-import { Lang, LANG_LABELS } from '@/lib/i18n';
 import { AuroxMeuRitmo } from '@/components/aurox-meu-ritmo';
-
-function comprimir(file: File): Promise<Blob> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const max = 512;
-      const s = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * s);
-      c.height = Math.round(img.height * s);
-      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-      c.toBlob((b) => resolve(b || file), 'image/jpeg', 0.8);
-    };
-    img.src = URL.createObjectURL(file);
-  });
-}
+import { ArrowUpRight, Camera, ChevronRight, CircleUserRound, Mail, MapPin, Pencil, Settings2, ShieldCheck, UserRound, X } from 'lucide-react';
+import './perfil-aurox-v4.css';
 
 export default function MinhaContaPage() {
-  const { t, setLang } = useI18n();
   const [dados, setDados] = useState<any>({});
   const [login, setLogin] = useState('');
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
-  const [editLogin, setEditLogin] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [idioma, setIdioma] = useState('pt');
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    api.get('/conta').then((r) => {
-      setDados(r.data || {});
-      setLogin(r.data?.login || '');
-      setNome(r.data?.nome || '');
-      setTelefone(r.data?.telefone || '');
-      setEmail(r.data?.email || '');
-      setIdioma(r.data?.idioma || 'pt');
-    }).catch(() => {});
+    api.get('/conta').then(({ data }) => {
+      const r = data || {};
+      setDados(r);setLogin(r.login || '');setNome(r.nome || '');
+      setTelefone(r.telefone || '');setEmail(r.email || '');setIdioma(r.idioma || 'pt');
+    }).catch(() => toast.error('Não foi possível carregar seus dados.')).finally(() => setCarregando(false));
   }, []);
+
+  function cancelar() {
+    setNome(dados.nome || '');setTelefone(dados.telefone || '');setEmail(dados.email || '');setEditando(false);
+  }
 
   async function salvar() {
     setSalvando(true);
     try {
       await api.patch('/conta', { telefone, email, nome, idioma });
-      try {
-        await api.patch('/preferencias', { idioma });
-      await setLang(idioma as Lang);
-      } catch { /* ok */ }
-      toast.success('Salvo');
-      setEditLogin(false);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Erro ao salvar');
-    } finally { setSalvando(false); }
+      setDados((d:any) => ({...d, telefone, email, nome}));
+      toast.success('Seus dados foram atualizados.');setEditando(false);
+    } catch (e:any) { toast.error(e?.response?.data?.error || 'Erro ao salvar os dados.'); }
+    finally { setSalvando(false); }
   }
 
-  function quadrado(file: File): Promise<Blob> {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const lado = Math.min(img.width, img.height);
-        const x = (img.width - lado) / 2;
-        const y = (img.height - lado) / 2;
-        const c = document.createElement('canvas');
-        c.width = 256; c.height = 256;
-        c.getContext('2d')!.drawImage(img, x, y, lado, lado, 0, 0, 256, 256);
-        c.toBlob((b) => resolve(b || file), 'image/jpeg', 0.85);
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  async function foto(f?: File) {
-    if (!f) return;
-    const compressed = await compressAvatar(f);
-    const fd = new FormData();
-    fd.append('foto', compressed);
+  async function foto(file?:File) {
+    if (!file) return;
     try {
+      const compressed = await compressAvatar(file);
+      const fd = new FormData();fd.append('foto', compressed);
       const { data } = await api.post('/conta', fd);
-      setDados((d: any) => ({ ...d, foto_url: data.foto_url }));
-      toast.success('Foto atualizada');
-    } catch (e: any) {
-      toast.error(e?.response?.data?.error || 'Erro na foto');
-    }
+      setDados((d:any) => ({ ...d, foto_url:data.foto_url }));
+      toast.success('Foto atualizada.');
+    } catch (e:any) { toast.error(e?.response?.data?.error || 'Não foi possível atualizar a foto.'); }
   }
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <h1 className="text-2xl font-bold">{t('account.title')}</h1>
-      <AuroxMeuRitmo/>
-      <div className="flex items-center gap-4">
-        <label className="cursor-pointer">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-            {dados.foto_url ? <img src={dados.foto_url} alt="" className="h-full w-full object-cover" /> : String(dados.login || '?').charAt(0).toUpperCase()}
+  return <main className="perfil-aurox-v4">
+    <header className="perfil-v4-header">
+      <div><div className="perfil-v4-eyebrow"><CircleUserRound size={14}/> ÁREA PESSOAL</div>
+        <h1>Minha conta</h1><p>Seus dados e seu progresso em um só lugar. Sem perder o foco na operação.</p></div>
+      <Link href="/configuracoes" className="perfil-v4-settings"><Settings2 size={17}/> Configurações <ChevronRight size={15}/></Link>
+    </header>
+    <div className="perfil-v4-layout">
+      <aside className="perfil-v4-side">
+        <section className="perfil-v4-profile">
+          <div className="perfil-v4-cover" aria-hidden="true"><span/><span/><span/></div>
+          <div className="perfil-v4-person">
+            <label className="perfil-v4-avatar" title="Alterar foto de perfil">
+              {dados.foto_url ? <img src={dados.foto_url} alt="Sua foto de perfil"/> : <span>{String(nome||login||'?').slice(0,1).toUpperCase()}</span>}
+              <span className="perfil-v4-camera"><Camera size={15}/></span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={e => {void foto(e.target.files?.[0]);e.target.value='';}}/>
+            </label>
+            <h2>{nome || login || (carregando?'Carregando…':'Seu perfil')}</h2>
+            <p>@{login || '—'}</p>
+            <div className="perfil-v4-tags"><span><ShieldCheck size={13}/> {String(dados.tipo || 'Usuário').replace('_',' ')}</span>{dados.loja && <span><MapPin size={13}/> Loja {dados.loja}</span>}</div>
           </div>
-          <input type="file" accept="image/*" className="hidden" onChange={(e) => foto(e.target.files?.[0])} />
-        </label>
-        <span className="text-sm text-muted-foreground">{t('account.photo_hint')}</span>
-      </div>
-      <div className="max-w-2xl space-y-4 rounded-2xl border border-border bg-card p-5">
-        <div>
-          <Label>{t('account.name')}</Label>
-          <div className="flex gap-2">
-            <Input value={nome} onChange={(e) => setNome(e.target.value)} disabled={!editLogin} />
-            <Button type="button" variant="outline" onClick={() => setEditLogin((v) => !v)}>{editLogin ? t('common.cancel') : t('common.edit')}</Button>
+          <div className="perfil-v4-meta"><div><UserRound size={15}/><span>Conta individual</span></div><p>Suas alterações não modificam o cadastro dos demais colaboradores.</p></div>
+        </section>
+        <section className="perfil-v4-edit">
+          <div className="perfil-v4-section-title"><div><span>Dados pessoais</span><small>Informações da sua conta</small></div>
+            {!editando && <button type="button" onClick={() => setEditando(true)}><Pencil size={15}/> Editar</button>}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">Login: {login}</div>
-        </div>
-        <div><Label>{t('account.profile')}</Label><Input value={dados.tipo || ''} disabled className="capitalize" /></div>
-        <div><Label>{t('account.phone')}</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} disabled={!editLogin} /></div>
-        <div><Label>{t('account.email')}</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!editLogin} /></div>
-        <Button onClick={salvar} disabled={salvando}>{salvando ? t('common.saving') : t('common.save')}</Button>
+          <div className="perfil-v4-fields">
+            <div><Label htmlFor="perfil-v4-nome">Nome</Label><Input id="perfil-v4-nome" value={nome} onChange={e=>setNome(e.target.value)} disabled={!editando || salvando}/></div>
+            <div><Label htmlFor="perfil-v4-login">Usuário / login</Label><Input id="perfil-v4-login" value={login} disabled/><p>O login é protegido e não é alterado nesta tela.</p></div>
+            <div><Label htmlFor="perfil-v4-telefone">Telefone</Label><Input id="perfil-v4-telefone" type="tel" inputMode="tel" value={telefone} placeholder="Número com DDD" onChange={e=>setTelefone(e.target.value)} disabled={!editando || salvando}/></div>
+            <div><Label htmlFor="perfil-v4-email">E-mail</Label><Input id="perfil-v4-email" type="email" value={email} placeholder="seu@email.com" onChange={e=>setEmail(e.target.value)} disabled={!editando || salvando}/></div>
+          </div>
+          {editando && <div className="perfil-v4-actions"><Button type="button" variant="outline" onClick={cancelar} disabled={salvando}><X size={15}/> Cancelar</Button><Button type="button" onClick={salvar} disabled={salvando}>{salvando?'Salvando…':'Salvar alterações'}</Button></div>}
+          <div className="perfil-v4-security"><Mail size={16}/><div><strong>Dados protegidos</strong><p>Nome, telefone e e-mail são atualizados somente na sua conta.</p></div></div>
+        </section>
+      </aside>
+      <div className="perfil-v4-work">
+        <AuroxMeuRitmo/>
+        <div className="perfil-v4-bottom-link"><span>Precisa de uma visão completa da concessionária?</span><Link href="/inicio">Abrir Visão Geral <ArrowUpRight size={15}/></Link></div>
       </div>
     </div>
-  );
+  </main>;
 }
