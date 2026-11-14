@@ -4,28 +4,13 @@ import {createPortal} from 'react-dom';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {useAuth} from '@/contexts/auth-context';
-import {LayoutDashboard,FileText,CheckSquare,MessageCircle,FolderHeart,Settings} from 'lucide-react';
-
-/** Evita a oscilação: desce -> esconde; reaparece somente após subir deliberadamente. */
+import {CalendarDays,Home,LayoutDashboard,MessageCircle,Settings2,ClipboardCheck} from 'lucide-react';
 export function BottomNav(){
-  /* AUROX: barra inferior permanente */
-  const [mounted,setMounted]=useState(false);
-  const {user}=useAuth();
-  const path=usePathname()||'';
-  useEffect(()=>setMounted(true),[]);
-  if(!mounted)return null;
-  const role=String(user?.tipo||'').toLowerCase();
-  const items=[
-    {href:'/painel',label:'Leads',Icon:LayoutDashboard,roles:['superadmin','admin','gerente','marketing','vendedor']},
-    {href:'/follow-up',label:'Follow Up',Icon:FolderHeart,roles:['vendedor','gerente','admin','superadmin']},
-    {href:'/fichas',label:'Fichas',Icon:FileText,roles:['superadmin','admin','gerente','marketing','vendedor','elfenai','elfen_ai','elfenaí']},
-    {href:'/tarefas',label:'Tarefas',Icon:CheckSquare,roles:[]},
-    {href:'/chat',label:'Chat',Icon:MessageCircle,roles:['superadmin','admin','gerente','marketing','vendedor']},
-    {href:'/configuracoes',label:'Menu',Icon:Settings,roles:[]},
-  ].filter(x=>!x.roles.length||x.roles.includes(role));
-  return createPortal(<nav aria-label="Atalhos do Aurox" className="aurox-mobile-nav fixed bottom-3 left-1/2 z-[90] flex max-w-[96vw] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out">
-    {items.map(({href,label,Icon})=>{const active=path===href||path.startsWith(href+'/');return <Link key={href} href={href} aria-current={active?'page':undefined}
-      className={`flex min-w-[62px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium ${active?'bg-primary/15 text-primary':'text-foreground/75 hover:bg-muted'}`}>
-      <Icon size={19} strokeWidth={active?2.3:1.8}/><span>{label}</span></Link>})}
-  </nav>,document.body);
+ const [mounted,setMounted]=useState(false);const path=usePathname()||'';const {user}=useAuth();
+ useEffect(()=>setMounted(true),[]);if(!mounted)return null;
+ const role=String(user?.tipo||'').toLowerCase();
+ const items=[{href:'/inicio',label:'Início',icon:Home},{href:'/agenda',label:'Agenda',icon:CalendarDays},
+ ...( ['superadmin','admin','gerente','marketing','vendedor'].includes(role)?[{href:'/painel',label:'Leads',icon:LayoutDashboard},{href:'/chat',label:'Chat',icon:MessageCircle}]:[{href:'/tarefas',label:'Tarefas',icon:ClipboardCheck}]),
+ {href:'/configuracoes',label:'Mais',icon:Settings2}];
+ return createPortal(<nav className="nova-mobile-dock" aria-label="Navegação móvel">{items.map(item=>{const I=item.icon,selected=path===item.href||path.startsWith(item.href+'/');return <Link key={item.href} href={item.href} aria-current={selected?'page':undefined} className={selected?'is-active':''}><I size={19}/><span>{item.label}</span></Link>})}</nav>,document.body);
 }

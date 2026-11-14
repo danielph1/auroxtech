@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 export const TEMAS = [
-  { id: 'escuro', nome: 'Escuro', desc: 'O padrão atual' },
+  { id: 'escuro', nome: 'Escuro', desc: 'Escuro profissional' },
   { id: 'preto', nome: 'Preto', desc: 'Quase tudo preto, minimalista' },
   { id: 'claro', nome: 'Claro', desc: 'Fundo claro com azul' },
   { id: 'azul', nome: 'Azul escuro', desc: 'Fundo azul marinho' },
@@ -19,15 +19,15 @@ export type TemaId = (typeof TEMAS)[number]['id'];
 const KEY = 'manu.tema';
 
 const Ctx = createContext<{ tema: TemaId; setTema: (t: TemaId) => void }>({
-  tema: 'escuro',
+  tema: 'claro',
   setTema: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [tema, setTemaState] = useState<TemaId>('escuro');
+  const [tema, setTemaState] = useState<TemaId>('claro');
 
   useEffect(() => {
-    const salvo = (window.localStorage.getItem(KEY) || 'escuro') as TemaId;
+    const salvo = (window.localStorage.getItem(KEY) || 'claro') as TemaId;
     aplicar(salvo);
     setTemaState(salvo);
   }, []);

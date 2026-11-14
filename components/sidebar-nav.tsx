@@ -1,88 +1,44 @@
 'use client';
-import Link from 'next/link';import {usePathname} from 'next/navigation';
-import {useAuth} from '@/contexts/auth-context';import {useI18n} from '@/contexts/i18n-context';
+import Link from 'next/link';
+import {usePathname} from 'next/navigation';
 import {useState} from 'react';
-import {cn} from '@/lib/utils';
-import {LayoutDashboard,Inbox,Clock3,MessageCircle,FileText,Target,CheckSquare,BarChart3,
-  Users,UserRoundPlus,ArrowRightLeft,Wrench,Car,Receipt,Wallet,Settings,PlugZap,Megaphone,
-  LogOut,History,Building2,ChevronDown,PlusCircle,FolderHeart,ChartNoAxesCombined,Star,PanelsTopLeft} from 'lucide-react';
+import {useAuth} from '@/contexts/auth-context';
+import {Activity,BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
-type LinkDef={href:string;label:string;icon:LucideIcon;roles?:string[]};
-const ALL=['vendedor','gerente','admin','superadmin','marketing','documentista','documento','elfenai','mecanico','guariba'];
-const COMERCIAL=['superadmin','admin','gerente','marketing','vendedor'];
-const CREDITO=[...COMERCIAL,'elfenai','elfen_ai','elfenaí'];
-const DOCUMENTAL=['superadmin','admin','gerente','vendedor','documentista','documento'];
-const FATURAMENTO=[...COMERCIAL,'documentista','documento'];
-const MGR=['gerente','admin','superadmin'];
-const ADMIN=['admin','marketing','superadmin'];
-const METRIC=['admin','marketing','gerente','superadmin'];
-const sections:{id:string;title:string;links:LinkDef[]}[]=[
- {id:'leads',title:'Leads e atendimento',links:[
-  {href:'/triagem',label:'Triagem',icon:Inbox,roles:METRIC},
-  {href:'/painel',label:'Painel de Leads',icon:LayoutDashboard,roles:COMERCIAL},
-  {href:'/follow-up',label:'Follow Up',icon:FolderHeart,roles:['vendedor',...MGR]},
-  {href:'/atendimento',label:'Gestão de Atendimento',icon:Clock3,roles:METRIC},
-  {href:'/chat',label:'Conversas',icon:MessageCircle,roles:COMERCIAL},
-  {href:'/novo-lead',label:'Cadastrar Lead',icon:PlusCircle,roles:COMERCIAL},
- ]},
- {id:'comercial',title:'Comercial e resultados',links:[
-  {href:'/fichas',label:'Fichas',icon:FileText,roles:CREDITO},
-  {href:'/tarefas',label:'Tarefas',icon:CheckSquare,roles:ALL},
-  {href:'/metas',label:'Metas',icon:Target,roles:ALL},
-  {href:'/metricas',label:'Métricas',icon:BarChart3,roles:METRIC},
-  {href:'/desempenho',label:'Desempenho da Equipe',icon:ChartNoAxesCombined,roles:METRIC},
-  {href:'/ranking',label:'Ranking',icon:Star,roles:ALL},
- ]},
- {id:'operacao',title:'Operação',links:[
-  {href:'/estoque',label:'Estoque',icon:Car,roles:ALL},
-  {href:'/anuncios',label:'Anúncios',icon:Megaphone,roles:METRIC},
-  {href:'/anuncio-coletivo',label:'Anúncio coletivo',icon:Megaphone,roles:METRIC},
-  {href:'/processos',label:'Transferências',icon:ArrowRightLeft,roles:DOCUMENTAL},
-  {href:'/oficina',label:'Oficina',icon:Wrench,roles:ALL},
-  {href:'/faturamento',label:'Faturamento',icon:Receipt,roles:FATURAMENTO},
- ]},
- {id:'admin',title:'Administração',links:[
-  {href:'/equipe',label:'Equipe',icon:Users,roles:MGR},
-  {href:'/gestao-usuarios',label:'Usuários e cadastros',icon:UserRoundPlus,roles:ADMIN},
-  {href:'/historico',label:'Histórico e Auditoria',icon:History,roles:METRIC},
-  {href:'/financas',label:'Finanças',icon:Wallet,roles:['admin','superadmin']},
-  {href:'/integracoes',label:'Integrações',icon:PlugZap,roles:ADMIN},
-  {href:'/aurox',label:'Gestão Aurox',icon:Building2,roles:['superadmin']},
-  {href:'/configuracoes',label:'Configurações',icon:Settings,roles:ALL},
- ]},
-];
+type Item={href:string;label:string;icon:LucideIcon;roles?:string[]};
+const C=['vendedor','gerente','admin','superadmin','marketing'];
+const G=['gerente','admin','superadmin'];const M=['gerente','marketing','admin','superadmin'];
+const CR=[...C,'elfenai','elfen_ai','elfenaí'];
+const D=['superadmin','admin','gerente','vendedor','documentista','documento'];
+const F=[...C,'documentista','documento'];const AD=['superadmin','admin','marketing'];
+const S=[
+ {id:'principal',title:'Principal',links:[{href:'/inicio',label:'Visão geral',icon:Home},{href:'/agenda',label:'Agenda',icon:CalendarDays}]},
+ {id:'leads',title:'Atendimento',links:[{href:'/triagem',label:'Triagem',icon:Inbox,roles:M},{href:'/painel',label:'Painel de leads',icon:LayoutDashboard,roles:C},
+ {href:'/chat',label:'Conversas',icon:MessageCircleMore,roles:C},{href:'/follow-up',label:'Follow Up',icon:FolderHeart,roles:['vendedor',...G]},
+ {href:'/atendimento',label:'Gestão do atendimento',icon:Clock3,roles:M},{href:'/novo-lead',label:'Cadastrar lead',icon:PlusCircle,roles:C}]},
+ {id:'comercial',title:'Comercial',links:[{href:'/fichas',label:'Fichas',icon:FileText,roles:CR},{href:'/tarefas',label:'Tarefas',icon:ClipboardCheck},
+ {href:'/metas',label:'Metas',icon:Target},{href:'/metricas',label:'Métricas',icon:BarChart3,roles:M},
+ {href:'/desempenho',label:'Desempenho',icon:ChartNoAxesCombined,roles:M},{href:'/ranking',label:'Ranking',icon:Star}]},
+ {id:'operacao',title:'Operação',links:[{href:'/estoque',label:'Estoque',icon:CarFront},{href:'/oficina',label:'Oficina',icon:Wrench},
+ {href:'/anuncios',label:'Anúncios',icon:Megaphone,roles:M},{href:'/anuncio-coletivo',label:'Anúncio coletivo',icon:Megaphone,roles:M},
+ {href:'/processos',label:'Transferências',icon:ArrowLeftRight,roles:D},{href:'/faturamento',label:'Faturamento',icon:Receipt,roles:F}]},
+ {id:'admin',title:'Administração',links:[{href:'/equipe',label:'Equipe',icon:Users,roles:G},
+ {href:'/gestao-usuarios',label:'Usuários',icon:BookUser,roles:AD},{href:'/financas',label:'Finanças',icon:Wallet,roles:['admin','superadmin']},
+ {href:'/historico',label:'Auditoria',icon:History,roles:M},{href:'/integracoes',label:'Integrações',icon:PlugZap,roles:AD},
+ {href:'/aurox',label:'Gestão Aurox',icon:Building2,roles:['superadmin']},
+ {href:'/configuracoes',label:'Configurações',icon:Settings2}]}
+] as {id:string;title:string;links:Item[]}[];
 export function SidebarNav({onNavigate}:{onNavigate?:()=>void}){
- const path=usePathname()||'';const {user,logout}=useAuth();const {t}=useI18n();
- const role=String(user?.tipo||'').toLowerCase();const [expanded,setExpanded]=useState<Record<string,boolean>>({leads:true});
- const match=(href:string)=>path===href||path.startsWith(href+'/');
- return <aside className="aurox-sidebar sticky top-0 flex h-screen w-72 flex-col overflow-y-auto border-r border-border/60 bg-background/95 px-3 pb-5 pt-16 lg:pt-4">
-  <div className="aurox-sidebar-brand">
-    <span className="aurox-sidebar-emblem" aria-hidden="true">A</span>
-    <span><strong>AUROX</strong><small>Gestão automotiva</small></span>
-  </div>
-  <Link href="/minha-conta" onClick={onNavigate} className="mb-5 flex items-center gap-3 rounded-xl border bg-card/70 p-3 hover:bg-muted/40">
-   <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-semibold text-primary-foreground">{(user as any)?.foto_url?<img alt="" src={(user as any).foto_url} className="h-full w-full object-cover"/>:String(user?.nome||user?.login||'?')[0]?.toUpperCase()}</span>
-   <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{user?.nome||user?.login||'Minha conta'}</strong><span className="block truncate text-xs capitalize text-muted-foreground">{role}{user?.loja?` · Loja ${user.loja}`:''}</span></span>
-  </Link>
-  <div className="space-y-2" aria-label="Navegação principal">{sections.map(section=>{
-   const links=section.links.filter(link=>!link.roles||link.roles.includes(role));if(!links.length)return null;
-   const active=links.some(link=>match(link.href));const isOpen=expanded[section.id]??active;
-   return <section key={section.id} className="rounded-xl border border-transparent bg-card/20">
-    <button type="button" aria-expanded={isOpen} onClick={()=>setExpanded(s=>({...s,[section.id]:!isOpen}))}
-      className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40">
-      <span>{section.title}</span><ChevronDown size={15} className={cn('transition-transform',isOpen&&'rotate-180')}/>
-    </button>
-    {isOpen&&<nav className="space-y-0.5 px-1 pb-2">{links.map(link=>{
-     const Icon=link.icon,selected=match(link.href);
-     return <Link key={link.href} href={link.href} onClick={onNavigate} aria-current={selected?'page':undefined}
-       className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted/60',selected?'bg-primary/10 font-semibold text-primary':'text-foreground/85')}>
-       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8}/><span>{link.href==='/configuracoes'?t('nav.config'):link.label}</span>
-      </Link>;
-    })}</nav>}
-   </section>;
-  })}</div>
-  <div className="mt-auto space-y-3 pt-5"><Link href="/configuracoes" onClick={onNavigate} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-muted/40"><PanelsTopLeft size={16}/>Personalização e conta</Link>
-   <button onClick={()=>void logout()} className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted/50"><LogOut size={16}/>Sair</button>
-  </div>
+ const path=usePathname()||'';const {user,logout}=useAuth();const cargo=String(user?.tipo||'').toLowerCase();
+ const [fold,setFold]=useState<Record<string,boolean>>({principal:true,leads:true});
+ const active=(p:string)=>path===p||path.startsWith(p+'/');
+ return <aside className="nova-sidebar" aria-label="Menu principal">
+  <Link href="/inicio" className="nova-brand" onClick={onNavigate}><span className="nova-brand-mark"><Activity size={22}/></span><span><strong>AUROX</strong><small>GESTÃO AUTOMOTIVA</small></span></Link>
+  <div className="nova-sidebar-scroll">{S.map(section=>{const links=section.links.filter(l=>!l.roles||l.roles.includes(cargo));if(!links.length)return null;
+   const open=fold[section.id]??links.some(l=>active(l.href));
+   return <section key={section.id} className="nova-nav-section"><button type="button" onClick={()=>setFold(x=>({...x,[section.id]:!open}))} aria-expanded={open} className="nova-nav-section-title">{section.title}<ChevronDown size={14} className={open?'nova-chevron-open':''}/></button>
+    {open&&<nav className="nova-nav-links">{links.map(l=>{const Icon=l.icon;return <Link href={l.href} onClick={onNavigate} key={l.href} aria-current={active(l.href)?'page':undefined} className={'nova-nav-link'+(active(l.href)?' is-active':'')}><Icon size={18} strokeWidth={active(l.href)?2.15:1.8}/><span>{l.label}</span></Link>})}</nav>}
+   </section>})}</div>
+  <div className="nova-sidebar-footer"><Link href="/configuracoes" onClick={onNavigate}><CircleHelp size={16}/>Ajuda e suporte</Link><Link href="/minha-conta" onClick={onNavigate} className="nova-current-user"><span className="nova-user-avatar">{String(user?.nome||user?.login||'?')[0].toUpperCase()}</span><span><strong>{user?.nome||user?.login||'Minha conta'}</strong><small>{cargo}{user?.loja?` · Loja ${user.loja}`:''}</small></span></Link><button onClick={()=>void logout()}><LogOut size={16}/>Sair</button></div>
  </aside>;
 }

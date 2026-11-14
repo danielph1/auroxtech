@@ -1,130 +1,52 @@
 'use client';
-import { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/contexts/auth-context';
-
-export default function EquipePage() {
-  const { user } = useAuth();
-  const qc=useQueryClient();
-  const [redistribuindo,setRedistribuindo]=useState<number|null>(null);
-  const papel=String(user?.tipo||'').toLowerCase();
-  async function redistribuir(v:any) {
-    const total=Number(v.leads_em_aberto||0);
-    if (!total || v.ativo || !['gerente','admin','superadmin'].includes(papel)) return;
-    if (!window.confirm(`Redistribuir aleatoriamente até 80 leads não vendidos de ${v.nome} para vendedores ATIVOS da ${papel==='gerente'?'mesma loja':'mesma empresa'}? Se escolher Cancelar, os leads continuam com ele.`)) return;
-    setRedistribuindo(Number(v.id));
-    try {
-      const {data}=await api.post('/leads/redistribuir-inativo',{vendedor_id:Number(v.id)});
-      toast.success(`${data.transferidos} leads redistribuídos. Restantes: ${data.restantes}.`);
-      await qc.invalidateQueries({queryKey:['equipe']});
-      await qc.invalidateQueries({queryKey:['leads']});
-    } catch(e:any) {toast.error(e?.response?.data?.error||'Não foi possível redistribuir');}
-    finally {setRedistribuindo(null);}
-  }
-  const isGerente = String(user?.tipo || '').toLowerCase() === 'gerente';
-  const [loja, setLoja] = useState<string>(isGerente ? String(user?.loja || '') : '');
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['equipe', loja],
-    queryFn: async () =>
-      (await api.get('/equipe', { params: loja ? { loja } : {} })).data,
-    refetchInterval: 60_000,
-  });
-
-  const lista = Array.isArray(data) ? data : [];
-  const lojas = useMemo(() => {
-    const s = new Set<string>();
-    for (const v of lista) {
-      const L = String(v.loja || '').replace('.0', '').trim();
-      if (L) s.add(L);
-    }
-    return Array.from(s).sort();
-  }, [lista, loja]);
-
-  return (
-    <div className="mx-auto max-w-5xl space-y-4 pb-24">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Equipe</h1>
-          <p className="text-sm text-muted-foreground">
-            Ranking do mês. + leads que pegou hoje · − que deixou passar hoje (zera à meia-noite).
-            O mês fica no card.
-          </p>
-        </div>
-        {!isGerente && (
-          <div className="flex items-center gap-2 text-sm">
-            <label className="text-muted-foreground">Loja</label>
-            <select
-              className="rounded-md border border-border bg-background px-3 py-2"
-              value={loja}
-              onChange={(e) => setLoja(e.target.value)}
-            >
-              <option value="">Todas</option>
-              {lojas.map((L) => (
-                <option key={L} value={L}>
-                  {L}
-                </option>
-              ))}
-              {loja && !lojas.includes(loja) && <option value={loja}>{loja}</option>}
-            </select>
-          </div>
-        )}
-      </header>
-      {isLoading && <p className="text-muted-foreground">Carregando…</p>}
-      {error && <p className="text-rose-400">Não foi possível carregar a equipe.</p>}
-      {!isLoading && lista.length === 0 && (
-        <p className="text-muted-foreground">Nenhum vendedor ativo{loja ? ` na loja ${loja}` : ''}.</p>
-      )}
-      <div className="grid gap-3 md:grid-cols-3">
-        {lista.map((v: any, i: number) => (
-          <Card key={v.id}>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2 font-semibold">
-                  {v.foto_url ? (
-                    <img src={v.foto_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-                  ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                      {String(v.nome || '?').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="truncate">
-                    {i + 1}. {v.nome}{v.ativo===false?' · Inativo':''}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-2 text-sm font-bold">
-                  <span className="text-emerald-400">+{Number(v.plus_hoje || 0)}</span>
-                  <span className="text-rose-400">−{Number(v.minus_hoje || 0)}</span>
-                </div>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
-                <span>Loja {String(v.loja || '—').replace('.0', '')}</span>
-                <span className="font-semibold text-primary">{Number(v.pontos || 0).toFixed(1)} pts</span>
-              </div>
-              {v.ativo===false&&Number(v.leads_em_aberto||0)>0&&['gerente','admin','superadmin'].includes(papel)&&
-                <button type="button" disabled={redistribuindo===Number(v.id)}
-                  onClick={()=>void redistribuir(v)}
-                  className="mt-3 rounded-lg border border-amber-500/50 px-3 py-2 text-xs hover:bg-amber-500/10 disabled:opacity-50">
-                  {redistribuindo===Number(v.id)?'Redistribuindo…':`Redistribuir ${v.leads_em_aberto} leads do inativo`}
-                </button>}
-              <div className="mt-2 text-xs text-muted-foreground">
-                Mês: Leads {v.leads} · Resp. {v.responderam} · Fichas {v.fichas} · Aprov. {v.aprovados} ·
-                Vendas {v.vendas}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Transferências no mês:{' '}
-                <span className="text-emerald-400">+{Number(v.plus_mes || 0)}</span>
-                {' · '}
-                <span className="text-rose-400">−{Number(v.minus_mes || 0)}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+import {useMemo,useState} from 'react';
+import Link from 'next/link';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
+import {toast} from 'sonner';
+import {api} from '@/lib/api';import {useAuth} from '@/contexts/auth-context';
+import {ArrowRight,ArrowRightLeft,BarChart3,ChevronRight,Search,ShieldCheck,UserRound,Users,X} from 'lucide-react';
+type Pessoa={id:number;nome:string;foto_url?:string;loja?:string;ativo?:boolean;leads?:number;responderam?:number;fichas?:number;aprovados?:number;vendas?:number;pontos?:number;plus_hoje?:number;minus_hoje?:number;plus_mes?:number;minus_mes?:number;leads_em_aberto?:number};
+const n=(v:unknown)=>Number(v||0).toLocaleString('pt-BR');
+function Stat({label,value}:{label:string;value:unknown}){return <div className="nova-profile-stat"><small>{label}</small><strong>{n(value)}</strong></div>}
+export default function EquipePage(){
+ const {user}=useAuth();const qc=useQueryClient();const role=String(user?.tipo||'').toLowerCase();
+ const manager=role==='gerente',authorized=['gerente','admin','superadmin'].includes(role);const canManage=['admin','superadmin'].includes(role);
+ const [loja,setLoja]=useState(manager?String(user?.loja||''):'');const [search,setSearch]=useState('');
+ const [empresa,setEmpresa]=useState('');const superadmin=role==='superadmin';
+ const empresas=useQuery({queryKey:['equipe-empresas',user?.id],enabled:superadmin,queryFn:async()=>{const r=await api.get('/faturamento/empresas');return Array.isArray(r.data)?r.data as {id:number;nome:string}[]:[];}});
+ const empresaId=superadmin?Number(empresa):Number(user?.empresa_id||0);
+ const empresaEscolhida=superadmin?empresaId>0:!!user?.empresa_id;
+ const [modo,setModo]=useState<'grade'|'lista'>('grade');const [pessoa,setPessoa]=useState<Pessoa|null>(null);const [busy,setBusy]=useState<number|null>(null);
+ const {data=[],isLoading,error}=useQuery({queryKey:['equipe',loja,empresaId],enabled:authorized&&empresaEscolhida,queryFn:async()=>{const r=await api.get('/equipe',{params:{...(loja?{loja}:{}),...(superadmin?{empresa_id:empresaId}:{})}});return Array.isArray(r.data)?r.data as Pessoa[]:[];},refetchInterval:60000});
+ const lojas=useMemo(()=>Array.from(new Set(data.map(v=>String(v.loja||'').replace('.0','').trim()).filter(Boolean))).sort(),[data]);
+ const lista=useMemo(()=>data.filter(v=>String(v.nome||'').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))),[data,search]);
+ async function redistribuir(v:Pessoa){if(v.ativo!==false||!(Number(v.leads_em_aberto)>0)||!authorized)return;
+  if(!window.confirm(`Redistribuir aleatoriamente até 80 leads não vendidos de ${v.nome} para vendedores ATIVOS da ${manager?'mesma loja':'mesma empresa'}? Ao cancelar, a carteira permanece com ele.`))return;
+  setBusy(v.id);try{const {data:out}=await api.post('/leads/redistribuir-inativo',{vendedor_id:v.id});toast.success(`${out.transferidos} leads redistribuídos. Restantes: ${out.restantes}.`);await Promise.all([qc.invalidateQueries({queryKey:['equipe']}),qc.invalidateQueries({queryKey:['leads']})]);}
+  catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível redistribuir os leads.');}finally{setBusy(null);}
+ }
+ if(!authorized)return <div className="nova-surface p-6">Acesso restrito.</div>;
+ return <div className="space-y-5">
+  <div className="nova-page-heading"><div><span className="nova-label">Pessoas e produtividade</span><h1 className="mt-2">Equipe</h1><p>Quem está em atividade, desempenho no mês e detalhes de cada vendedor.</p></div><div className="flex items-end gap-2">{canManage&&<Link href="/gestao-usuarios" className="nova-button"><Users size={16}/>Gerenciar acessos</Link>}</div></div>
+  <div className="nova-surface nova-panel-pad"><div className="flex flex-wrap items-end gap-3 justify-between"><div className="flex flex-wrap gap-3 items-end"><label className="nova-field">Buscar colaborador<div className="flex items-center gap-2"><Search size={15}/><input placeholder="Nome do colaborador" value={search} onChange={e=>setSearch(e.target.value)}/></div></label>{superadmin&&<label className="nova-field">Empresa<select value={empresa} onChange={e=>{setEmpresa(e.target.value);setLoja('')}}><option value="">Selecione a empresa</option>{(empresas.data||[]).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>}{!manager&&<label className="nova-field">Loja<select value={loja} onChange={e=>setLoja(e.target.value)}><option value="">Todas as lojas</option>{lojas.map(l=><option key={l} value={l}>{l}</option>)}{loja&&!lojas.includes(loja)&&<option value={loja}>{loja}</option>}</select></label>}</div>
+   <div className="flex gap-2"><button className={'nova-button '+(modo==='grade'?'':'ghost')} onClick={()=>setModo('grade')}>Cards</button><button className={'nova-button '+(modo==='lista'?'':'ghost')} onClick={()=>setModo('lista')}>Lista</button></div></div>
+   <p className="mt-3 text-xs nova-text-muted">{lista.length} colaborador(es) · Os dados são limitados à empresa e loja autorizadas pelo servidor.</p>
+  </div>
+  {superadmin&&!empresaEscolhida&&<div className="nova-empty">Selecione uma empresa para consultar a equipe sem misturar concessionárias.</div>}{isLoading&&<div className="nova-empty">Carregando equipe…</div>}{!!error&&<div className="nova-empty">Não foi possível carregar a equipe.</div>}
+  {!isLoading&&!lista.length&&<div className="nova-empty">Nenhum colaborador encontrado.</div>}
+  {modo==='grade'?<div className="nova-team-grid">{lista.map(v=><button type="button" key={v.id} onClick={()=>setPessoa(v)} className="nova-surface nova-person-card text-left" aria-label={`Ver detalhes de ${v.nome}`}><div className="flex items-center justify-between gap-3"><span className="nova-person-avatar">{v.foto_url?<img className="h-full w-full rounded-[19px] object-cover" alt="" src={v.foto_url}/>:String(v.nome||'?')[0]?.toUpperCase()}</span><span className={'nova-status-pill'+(v.ativo===false?' off':'')}>{v.ativo===false?'Inativo':'Ativo'}</span></div>
+   <h3 className="mt-4 text-[15px] font-bold truncate">{v.nome}</h3><p className="text-xs nova-text-muted mt-1">Vendedor · Loja {String(v.loja||'—').replace('.0','')}</p>
+   <div className="nova-team-stats"><span><strong>{n(v.leads)}</strong><small>Leads no mês</small></span><span><strong>{n(v.fichas)}</strong><small>Fichas</small></span><span><strong>{n(v.vendas)}</strong><small>Vendas</small></span></div>
+   <div className="flex justify-between mt-4 items-center text-xs"><span className="nova-text-muted">{Number(v.pontos||0).toFixed(1)} pontos · <span className="text-emerald-500">+{n(v.plus_hoje)}</span> / <span className="text-rose-500">−{n(v.minus_hoje)}</span> hoje</span><ChevronRight size={16}/></div>
+  </button>)}</div>:<div className="nova-surface overflow-hidden">{lista.map(v=><button type="button" onClick={()=>setPessoa(v)} key={v.id} className="nova-list-row w-full text-left px-5 hover:bg-muted/30"><span className="nova-user-avatar">{String(v.nome||'?')[0].toUpperCase()}</span><span className="flex-1 min-w-0"><strong className="truncate">{v.nome}</strong><small>Loja {v.loja||'—'} · Leads {n(v.leads)} · Vendas {n(v.vendas)}</small></span><span className={'nova-status-pill'+(v.ativo===false?' off':'')}>{v.ativo===false?'Inativo':'Ativo'}</span><ChevronRight size={17}/></button>)}</div>}
+  {pessoa&&<div className="nova-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setPessoa(null);}}><section className="nova-modal" role="dialog" aria-modal="true" aria-label={'Perfil de '+pessoa.nome} style={{width:'min(760px,100%)'}}><div className="nova-modal-head"><div><span className="nova-label">Perfil do colaborador</span><h2>{pessoa.nome}</h2></div><button aria-label="Fechar" className="nova-icon-button" onClick={()=>setPessoa(null)}><X size={20}/></button></div>
+   <div className="nova-profile-pane"><aside className="nova-surface p-4 flex flex-col items-center text-center"><span className="nova-person-avatar" style={{height:80,width:80,fontSize:32}}>{pessoa.foto_url?<img src={pessoa.foto_url} alt="" className="h-full w-full object-cover rounded-[19px]"/>:String(pessoa.nome||'?')[0]?.toUpperCase()}</span><h3 className="font-bold mt-3">{pessoa.nome}</h3><p className="nova-text-muted text-xs mt-1">Vendedor · Loja {pessoa.loja||'—'}</p><span className={'nova-status-pill mt-3'+(pessoa.ativo===false?' off':'')}>{pessoa.ativo===false?'Acesso inativo':'Ativo'}</span><p className="nova-text-muted mt-4 text-xs">Os dados individuais seguem as permissões da equipe e do sistema.</p></aside>
+    <div><h3 className="font-bold mb-3">Desempenho no mês</h3><div className="grid grid-cols-2 sm:grid-cols-3 gap-3"><Stat label="Leads" value={pessoa.leads}/><Stat label="Responderam" value={pessoa.responderam}/><Stat label="Fichas" value={pessoa.fichas}/><Stat label="Aprovados" value={pessoa.aprovados}/><Stat label="Vendas" value={pessoa.vendas}/><Stat label="Leads em aberto" value={pessoa.leads_em_aberto}/></div>
+     <div className="nova-surface p-4 mt-4"><h4 className="font-bold text-sm mb-2">Movimentações</h4><p className="nova-text-muted text-xs">Hoje: +{n(pessoa.plus_hoje)} recebidos · −{n(pessoa.minus_hoje)} perdidos</p><p className="nova-text-muted text-xs mt-2">No mês: +{n(pessoa.plus_mes)} / −{n(pessoa.minus_mes)} transferências</p><p className="nova-text-muted text-xs mt-2">Pontuação: {Number(pessoa.pontos||0).toFixed(1)}</p></div>
+    </div></div>
+   <div className="flex flex-wrap gap-2 mt-5 justify-end">{pessoa.ativo===false&&Number(pessoa.leads_em_aberto)>0&&<button type="button" className="nova-button ghost" disabled={busy===pessoa.id} onClick={()=>void redistribuir(pessoa)}><ArrowRightLeft size={15}/>{busy===pessoa.id?'Redistribuindo…':`Redistribuir ${n(pessoa.leads_em_aberto)} leads`}</button>}
+    {canManage&&<Link href="/gestao-usuarios" className="nova-button ghost"><ShieldCheck size={15}/>Gerenciar acesso/desligamento <ArrowRight size={14}/></Link>}
+    <button className="nova-button" onClick={()=>setPessoa(null)}>Concluir</button></div>
+   </section></div>}
+ </div>;
 }

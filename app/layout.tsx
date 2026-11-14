@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
+    <html lang="pt-BR" data-theme="claro" suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
