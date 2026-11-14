@@ -73,6 +73,7 @@ export default function FinancasPage(){
  const [draft,setDraft]=useState<Draft|null>(null),[sourceFin,setSourceFin]=useState<{venda:Venda;valor:string;fonte:string}|null>(null);
  const [agendarVenda,setAgendarVenda]=useState<AgendarVenda|null>(null);
  const [mesCalendario,setMesCalendario]=useState(()=>diaAtual().slice(0,7)),[diaEscolhido,setDiaEscolhido]=useState('');
+ const [mesParcelas,setMesParcelas]=useState(()=>diaAtual().slice(0,7));
  const [preco,setPreco]=useState(''),[lojaAurox,setLojaAurox]=useState('');
  const [maisMensalidades,setMaisMensalidades]=useState(false);
  const es=useQuery({queryKey:['financas-empresas'],enabled:acesso,queryFn:async()=>
@@ -89,15 +90,28 @@ export default function FinancasPage(){
    desde:desde||undefined,ate:ate||undefined}})).data,refetchInterval:60000});
  const d=dados.data;const hoje=diaAtual();
  const parcelas=d?.parcelas||[],manuais=parcelas.filter(x=>x.origem!=='aurox');
- const abertas=manuais.filter(p=>p.status!=='pago'&&p.status!=='cancelado'&&dataApenas(p.vencimento)>=hoje);
- const atrasadas=manuais.filter(p=>p.status!=='pago'&&p.status!=='cancelado'&&dataApenas(p.vencimento)<hoje);
+ // Uma cobrança por compromisso: recorrências futuras não repetem o mesmo lançamento.
+ const parcelasEmAberto=[...manuais].filter(p=>p.status!=='pago'&&p.status!=='cancelado'&&
+  (p.valor==null||Number(p.valor)-Number(p.desconto||0)-Number(p.recebido||0)>0.009))
+  .sort((a,b)=>dataApenas(a.vencimento).localeCompare(dataApenas(b.vencimento)));
+ const primeiraPendentePorConta=new Map<number,Parcela>();
+ for(const p of parcelasEmAberto)if(!primeiraPendentePorConta.has(p.agendamento_id))primeiraPendentePorConta.set(p.agendamento_id,p);
  const promessas=d?.promessas||[];
  const abertasVenda=promessas.filter(p=>p.ativo&&Number(p.valor)-Number(p.recebido)>0.009&&dataApenas(p.vencimento)>=hoje);
  const atrasadasVenda=promessas.filter(p=>p.ativo&&Number(p.valor)-Number(p.recebido)>0.009&&dataApenas(p.vencimento)<hoje);
- const proximos=[...abertas.map(p=>({tipo:'conta' as const,p,vencimento:dataApenas(p.vencimento)})),
-   ...abertasVenda.map(p=>({tipo:'venda' as const,p,vencimento:dataApenas(p.vencimento)}))].sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
- const vencidos=[...atrasadas.map(p=>({tipo:'conta' as const,p,vencimento:dataApenas(p.vencimento)})),
-   ...atrasadasVenda.map(p=>({tipo:'venda' as const,p,vencimento:dataApenas(p.vencimento)}))].sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
+ const primeiras=[...primeiraPendentePorConta.values()];
+ const proximos=[...primeiras.filter(p=>dataApenas(p.vencimento)>=hoje).map(p=>({tipo:'conta' as const,p,vencimento:dataApenas(p.vencimento)})),
+   ...abertasVenda.map(p=>({tipo:'venda' as const,p,vencimento:dataApenas(p.vencimento)}))]
+   .sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
+ const vencidos=[...primeiras.filter(p=>dataApenas(p.vencimento)<hoje).map(p=>({tipo:'conta' as const,p,vencimento:dataApenas(p.vencimento)})),
+   ...atrasadasVenda.map(p=>({tipo:'venda' as const,p,vencimento:dataApenas(p.vencimento)}))]
+   .sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
+ // A agenda identifica uma recorrência; as parcelas continuam intactas para as baixas e a auditoria.
+ const contasManuais=d?.agenda.filter(a=>a.origem!=='aurox')||[];
+ const agendaPorId=new Map<number,Agenda>(contasManuais.map(a=>[a.id,a] as const));
+ const totalVencidasPorConta=new Map<number,number>();
+ for(const p of parcelasEmAberto)if(dataApenas(p.vencimento)<hoje)
+  totalVencidasPorConta.set(p.agendamento_id,(totalVencidasPorConta.get(p.agendamento_id)||0)+1);
  const mensalidades=parcelas.filter(p=>p.origem==='aurox').sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
  const proximaAurox=mensalidades.find(p=>p.status!=='pago'&&dataApenas(p.vencimento)>=hoje)||mensalidades.find(p=>p.status!=='pago');
  const contratoAurox=d?.agenda.find(a=>a.origem==='aurox');
@@ -259,55 +273,62 @@ export default function FinancasPage(){
     {([['resumo','Visão geral'],['contas','Contas e boletos'],['vendas','Conciliação de vendas']] as const).map(([id,label])=><button
       key={id} className={`min-w-max rounded-lg px-4 py-2 text-sm ${aba===id?'bg-primary text-primary-foreground':'hover:bg-muted'}`} onClick={()=>setAba(id)}>{label}</button>)}
    </div>
-   {aba==='resumo'&&<div className="space-y-8">
-    <div className="grid gap-4 lg:grid-cols-2">
-     <Bloco titulo="Próximas contas a pagar e receber" descricao="Compromissos de clientes e da empresa. A mensalidade Aurox fica em Contas e boletos.">
-      {proximos.slice(0,8).map(e=>e.tipo==='conta'?<LinhaParcela key={`parcela-${e.p.id}`} p={e.p}
-        pagamentos={pagamentosPorParcela.get(e.p.id)||[]} onReceber={abrirParcela}
-        onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>:
-        <LinhaPromessa key={`venda-${e.p.id}`} p={e.p} onReceber={abrirPagamentoPromessa}
-         onEditar={editarPromessa} onCancelar={cancelarPromessa}/>)}
-      {!proximos.length&&<Vazio>Nenhuma conta futura cadastrada.</Vazio>}
+   {aba==='resumo'&&<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(270px,340px)]">
+    <div className="min-w-0 space-y-5">
+     <section aria-label="Calendário financeiro" className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+      <header className="mb-5 space-y-2 border-b border-border/60 pb-4">
+       <p className="text-xs font-semibold uppercase tracking-[.14em] text-primary">Planejamento do mês</p>
+       <h2 className="text-xl font-semibold">Calendário financeiro</h2>
+       <p className="text-xs text-muted-foreground">Vencimentos por dia. Previsões não entram no caixa até a baixa.</p>
+       <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"/>A receber</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500"/>A pagar</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-600"/>Vencidas</span>
+       </div>
+      </header>
+      <CalendarioFinanceiro mes={mesCalendario} onMes={setMesCalendario} dia={diaEscolhido} onDia={setDiaEscolhido} eventos={eventosCalendario}/>
+     </section>
+     <section aria-label="Detalhes do vencimento selecionado" className="rounded-2xl border border-border bg-card/50 p-4 sm:p-5">
+      <header className="mb-3"><h2 className="text-base font-semibold">{diaEscolhido?`Agenda de ${mostrarData(diaEscolhido)}`:'Detalhes do dia'}</h2>
+       <p className="mt-1 text-xs text-muted-foreground">Selecione um dia no calendário para consultar seus compromissos.</p></header>
+      <DetalheDiaFinanceiro dia={diaEscolhido} eventos={eventosCalendario}/>
+     </section>
+    </div>
+    <aside className="min-w-0 space-y-4 xl:sticky xl:top-5" aria-label="Painel lateral de compromissos">
+     <Bloco titulo="Próximos compromissos" descricao="Uma linha por compromisso, inclusive os mensais.">
+      <div className="space-y-1">
+       {proximos.slice(0,5).map(e=>e.tipo==='conta'?<LinhaResumoConta key={`pc-${e.p.agendamento_id}`} p={e.p}
+        agenda={agendaPorId.get(e.p.agendamento_id)} onReceber={abrirParcela} />:
+        <LinhaResumoPromessa key={`pv-${e.p.id}`} p={e.p} onReceber={abrirPagamentoPromessa}/>)}
+       {!proximos.length&&<Vazio>Nenhum vencimento futuro.</Vazio>}
+      </div>
+      {(proximos.length>5||contasManuais.length>0)&&<button type="button" onClick={()=>setAba('contas')}
+       className="mt-3 text-xs font-semibold text-primary hover:underline">Ver contas e boletos</button>}
      </Bloco>
-     <Bloco titulo="Contas vencidas" descricao="Saldos ainda não quitados. Pagamentos parciais ficam destacados.">
-      {vencidos.slice(0,8).map(e=>e.tipo==='conta'?<LinhaParcela key={`parcela-${e.p.id}`} p={e.p}
-        pagamentos={pagamentosPorParcela.get(e.p.id)||[]} onReceber={abrirParcela}
-        onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>:
-        <LinhaPromessa key={`venda-${e.p.id}`} p={e.p} onReceber={abrirPagamentoPromessa}
-         onEditar={editarPromessa} onCancelar={cancelarPromessa}/>)}
-      {!vencidos.length&&<Vazio>Nenhuma pendência vencida.</Vazio>}
+     <Bloco titulo="Atenção aos atrasos" descricao="Apenas pendências reais, agrupadas por compromisso.">
+      <div className="space-y-1">
+       {vencidos.slice(0,3).map(e=>e.tipo==='conta'?<LinhaResumoConta key={`vc-${e.p.agendamento_id}`} p={e.p}
+        agenda={agendaPorId.get(e.p.agendamento_id)} atrasadas={totalVencidasPorConta.get(e.p.agendamento_id)||1}
+        onReceber={abrirParcela}/>:<LinhaResumoPromessa key={`vv-${e.p.id}`} p={e.p} onReceber={abrirPagamentoPromessa}/>)}
+       {!vencidos.length&&<p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">Nenhuma conta vencida.</p>}
+      </div>
+      {vencidos.length>3&&<button type="button" className="mt-2 text-xs text-primary hover:underline" onClick={()=>setAba('contas')}>Ver todos os atrasos ({vencidos.length})</button>}
+     </Bloco>
+    </aside>
+    <div className="min-w-0 xl:col-span-2">
+     <Bloco titulo="Últimos movimentos" descricao="Últimas baixas e recebimentos; use o filtro de período no topo.">
+      {(d.movimentos||[]).slice(0,8).map(m=><div key={m.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2.5 last:border-0">
+       <div className="min-w-36 flex-1"><p className="text-sm font-medium">{m.descricao||m.categoria}</p>
+        <p className="text-xs text-muted-foreground">{m.categoria} · Loja {m.loja} · {mostrarData(m.data_movimento)}</p></div>
+       <strong className={`text-sm ${m.tipo==='entrada'?'text-emerald-500':'text-foreground'}`}>{m.tipo==='saida'?'−':'+'}{reais(m.valor)}</strong>
+       <span className="text-xs text-muted-foreground">{m.status}</span>
+       {(!m.origem_tipo||m.origem_tipo.startsWith('faturamento_'))&&m.status==='confirmado'&&<button className={btn} onClick={()=>void estornarMovimento(m)}>Estornar</button>}
+      </div>)}
+      {!d.movimentos.length&&<Vazio>Sem movimentos no período.</Vazio>}
+      {d.movimentos.length>8&&<details className="mt-3 border-t border-border pt-3 text-sm"><summary className="cursor-pointer text-primary">Ver outros {d.movimentos.length-8} movimentos</summary>
+       {d.movimentos.slice(8).map(m=><div key={m.id} className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-xs"><span>{mostrarData(m.data_movimento)} · {m.descricao||m.categoria}</span><span>{reais(m.valor)}</span></div>)}</details>}
      </Bloco>
     </div>
-    <section aria-label="Calendário financeiro" className="rounded-3xl border-2 border-primary/25 bg-card p-4 shadow-sm sm:p-6">
-     <header className="mb-6 space-y-2 border-b border-border/60 pb-5">
-      <p className="text-xs font-semibold uppercase tracking-[.15em] text-primary">Planejamento do mês</p>
-      <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Calendário financeiro</h2>
-      <p className="text-sm text-muted-foreground">Selecione um dia para consultar os vencimentos. As previsões não alteram o caixa antes da baixa.</p>
-      <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2 text-xs font-semibold">
-       <span className="flex items-center gap-2 text-emerald-500"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500"/> A receber</span>
-       <span className="flex items-center gap-2 text-rose-500"><span className="h-2.5 w-2.5 rounded-full bg-rose-500"/> A pagar</span>
-       <span className="flex items-center gap-2 text-rose-500"><span className="h-2.5 w-2.5 rounded-full border-2 border-rose-500 bg-rose-500/30"/> Vencidas (a pagar ou receber)</span>
-      </div>
-     </header>
-     <CalendarioFinanceiro mes={mesCalendario} onMes={setMesCalendario} dia={diaEscolhido} onDia={setDiaEscolhido} eventos={eventosCalendario}/>
-    </section>
-    <section aria-label="Detalhes do dia selecionado" className="rounded-2xl border border-border border-l-4 border-l-primary bg-background/60 p-4 sm:p-6">
-     <header className="mb-3"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Detalhamento de vencimentos</p>
-      <h2 className="mt-1 text-lg font-bold">{diaEscolhido?`Movimentos previstos para ${mostrarData(diaEscolhido)}`:'Selecione uma data no calendário'}</h2>
-      <p className="mt-1 text-xs text-muted-foreground">Aqui aparecem os compromissos do dia escolhido, separados do calendário.</p>
-     </header>
-     <DetalheDiaFinanceiro dia={diaEscolhido} eventos={eventosCalendario}/>
-    </section>
-    <Bloco titulo="Últimos movimentos" descricao="Pagamentos datados conforme o filtro; estornos permanecem identificáveis.">
-     {(d.movimentos||[]).slice(0,45).map(m=><div key={m.id} className="flex flex-wrap items-center gap-3 border-b py-2.5 last:border-0">
-      <div className="min-w-40 flex-1"><p className="text-sm font-medium">{m.descricao||m.categoria}</p>
-       <p className="text-xs text-muted-foreground">{m.categoria} · Loja {m.loja} · {mostrarData(m.data_movimento)}</p></div>
-      <strong className="text-sm">{m.tipo==='saida'?'−':'+'}{reais(m.valor)}</strong>
-      <span className={`text-xs ${m.status==='confirmado'?'text-emerald-500':'text-muted-foreground'}`}>{m.status}</span>
-      {(!m.origem_tipo||m.origem_tipo.startsWith('faturamento_'))&&m.status==='confirmado'&&<button className={btn} onClick={()=>void estornarMovimento(m)}>Estornar</button>}
-     </div>)}
-     {!d.movimentos.length&&<Vazio>Sem movimentos no período. Recebimento documental não é baixa de caixa.</Vazio>}
-    </Bloco>
    </div>}
    {aba==='contas'&&<div className="space-y-6">
     {criando&&<form onSubmit={salvarConta} className="space-y-4 rounded-2xl border border-primary/30 bg-card p-5">
@@ -332,38 +353,72 @@ export default function FinancasPage(){
      <div className="flex gap-2 justify-end"><button type="button" className={btn} onClick={()=>setCriando(false)}>Cancelar</button>
       <button type="submit" disabled={salvando} className={principal}>{salvando?'Salvando…':'Salvar compromisso'}</button></div>
     </form>}
-    <Bloco titulo="Assinatura Aurox" descricao="Contrato mensal protegido. As próximas competências são previsões, não doze cobranças atrasadas.">
-     {contratoAurox?<div className="flex flex-wrap items-center gap-6">
-      <p className="text-sm">Início do contrato: <strong>{mostrarData(contratoAurox.inicio)}</strong></p>
-      <p className="text-sm">Mensalidade: <strong>{reais(contratoAurox.valor)}</strong></p>
-      <p className="text-sm">Próximo vencimento: <strong>{mostrarData(proximaAurox?.vencimento)}</strong></p>
-      <span className="rounded-lg border px-2 py-1 text-xs">{contratoAurox.valor==null?'A definir pela plataforma':'Agendamento mensal ativo'}</span>
-     </div>:<Vazio>Contrato ainda não encontrado.</Vazio>}
-     {superadmin&&contratoAurox?.valor==null&&<div className="mt-4 flex flex-wrap items-end gap-2">
-       <Campo label="Valor mensal do contrato"><input type="number" min="0.01" step="0.01" className={input} value={preco} onChange={e=>setPreco(e.target.value)}/></Campo>
-       <Campo label="Loja"><select className={input} value={lojaAurox} onChange={e=>setLojaAurox(e.target.value)}>{lojas.map(x=><option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</select></Campo>
-       <button className={principal} onClick={()=>void definirAurox()} disabled={!preco}>Definir uma vez</button></div>}
-     <details className="mt-3 text-sm"><summary className="cursor-pointer text-primary">Consultar previsão e histórico das mensalidades</summary>
-      <div className="mt-2 space-y-2">{mensalidades.map(p=><div className="flex justify-between gap-3 border-b py-1.5" key={p.id}>
-       <span>{mostrarData(p.vencimento)} · Competência {p.numero}</span><span>{reais(p.valor)} · {p.status==='pago'?'Quitada':p.valor==null?'Prevista sem valor':'Pendente'}</span>
-       {p.valor!=null&&p.status!=='pago'&&superadmin&&<button className={btn} onClick={()=>abrirParcela(p)}>Registrar pagamento</button>}</div>)}</div>
-     </details>
-    </Bloco>
-    <Bloco titulo="Compromissos" descricao="Recebimentos e despesas agendados. A assinatura da plataforma é mostrada acima, separadamente.">
-     {d.agenda.filter(a=>a.origem!=='aurox').map(a=><div key={a.id} className="flex flex-wrap items-center gap-3 border-b py-3 last:border-0">
-      <div className="min-w-40 flex-1"><strong className="text-sm">{a.descricao}</strong>
-       <p className="text-xs text-muted-foreground">{a.tipo==='entrada'?'A receber':'A pagar'} · {a.forma} · {a.cliente||a.loja} · {a.frequencia==='mensal'?'mensal':'único'}</p></div>
-      <strong>{reais(a.valor)}</strong>{a.origem==='manual'?<div className="flex gap-2">
-       <button className={btn} onClick={()=>editarConta(a)}><PenLine size={14}/>Editar</button>
-       <button className={btn} onClick={()=>void cancelarConta(a)}><Trash2 size={14}/>Encerrar</button></div>:
-       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Shield size={13}/>Contrato protegido</span>}</div>)}
-    </Bloco>
-    <Bloco titulo="Parcelas e histórico de pagamentos" descricao="Valor original não muda com baixa parcial. O desconto fica registrado separadamente.">
-     {manuais.map(p=><LinhaParcela key={p.id} p={p} pagamentos={pagamentosPorParcela.get(p.id)||[]} onReceber={abrirParcela}
-      onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>)}
-     {!manuais.length&&<Vazio>Sem parcelas manuais para este período.</Vazio>}
-
-    </Bloco>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(270px,360px)]">
+     <div className="min-w-0 space-y-5">
+      <Bloco titulo="Parcelas do mês" descricao="Somente vencimentos e baixas do mês escolhido. Histórico completo fica recolhido.">
+       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/40 p-3">
+        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">Mês exibido
+         <input type="month" className={`${input} max-w-44`} value={mesParcelas} onChange={e=>setMesParcelas(e.target.value)}/></label>
+        <button type="button" className={btn} onClick={()=>setMesParcelas(diaAtual().slice(0,7))}>Mês atual</button>
+       </div>
+       {manuais.filter(p=>dataApenas(p.vencimento).startsWith(mesParcelas)||
+        (pagamentosPorParcela.get(p.id)||[]).some(pg=>dataApenas(pg.pago_em).startsWith(mesParcelas)))
+        .map(p=><LinhaParcela key={p.id} p={p} pagamentos={(pagamentosPorParcela.get(p.id)||[]).filter(pg=>dataApenas(pg.pago_em).startsWith(mesParcelas))}
+         onReceber={abrirParcela} onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>)}
+       {!manuais.some(p=>dataApenas(p.vencimento).startsWith(mesParcelas)||
+        (pagamentosPorParcela.get(p.id)||[]).some(pg=>dataApenas(pg.pago_em).startsWith(mesParcelas)))&&
+        <Vazio>Nenhuma parcela ou baixa neste mês. Selecione outro mês para consultar.</Vazio>}
+       {manuais.some(p=>!dataApenas(p.vencimento).startsWith(mesParcelas))&&
+        <details className="mt-4 border-t border-border/60 pt-3 text-sm"><summary className="cursor-pointer font-medium text-primary">Consultar histórico completo de parcelas</summary>
+         <div className="mt-4 space-y-3">
+          {contasManuais.map(a=>{
+           const items=manuais.filter(p=>p.agendamento_id===a.id);
+           return items.length?<details key={a.id} className="rounded-xl border border-border p-3"><summary className="cursor-pointer text-sm font-medium">{a.descricao} · {items.length} competência(s)</summary>
+            <div className="mt-3">{items.map(p=><LinhaParcela key={p.id} p={p} pagamentos={pagamentosPorParcela.get(p.id)||[]}
+             onReceber={abrirParcela} onEstornar={estornarParcela} onVencimento={mudarVencimento} superadmin={superadmin}/>)}</div>
+           </details>:null;})}
+         </div>
+        </details>}
+      </Bloco>
+     </div>
+     <aside className="min-w-0 space-y-4 xl:sticky xl:top-5" aria-label="Compromissos e assinatura">
+      <Bloco titulo="Compromissos" descricao="Cada conta aparece uma vez. Recorrências ficam agrupadas.">
+       <div className="space-y-3">
+        {contasManuais.map(a=>{
+         const p=primeiraPendentePorConta.get(a.id);
+         const atrasos=totalVencidasPorConta.get(a.id)||0;
+         const recorrencia=a.frequencia==='mensal'?(a.repeticoes==null?'Mensal · até cancelar':`Mensal · ${a.repeticoes} vezes`):'Única';
+         return <div key={a.id} className="rounded-xl border border-border bg-background/30 p-3">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold">{a.descricao}</p>
+           <p className="mt-1 text-xs text-muted-foreground">{a.tipo==='entrada'?'A receber':'A pagar'} · {recorrencia}</p></div>
+           <strong className="whitespace-nowrap text-sm">{reais(a.valor)}</strong></div>
+          <p className="mt-2 text-xs text-muted-foreground">{p?`${dataApenas(p.vencimento)<hoje?'Em atraso desde':'Próximo vencimento'}: ${mostrarData(p.vencimento)}`:'Sem parcelas pendentes'}
+           {atrasos>0&&<span className="ml-1 font-medium text-rose-500">· {atrasos} vencida(s)</span>}</p>
+          <div className="mt-3 flex flex-wrap gap-2">{p&&p.valor!=null&&<button className={btn} onClick={()=>abrirParcela(p)}>Dar baixa</button>}
+           <button className={btn} onClick={()=>editarConta(a)}><PenLine size={13}/>Editar</button>
+           <button className={btn} onClick={()=>void cancelarConta(a)}>Encerrar</button></div>
+         </div>;})}
+        {!contasManuais.length&&<Vazio>Nenhum compromisso cadastrado.</Vazio>}
+       </div>
+      </Bloco>
+      <Bloco titulo="Assinatura Aurox" descricao="Contrato separado dos compromissos comuns.">
+       {contratoAurox?<div className="space-y-2 text-xs">
+        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Início</span><strong>{mostrarData(contratoAurox.inicio)}</strong></div>
+        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Mensalidade</span><strong>{reais(contratoAurox.valor)}</strong></div>
+        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Próximo vencimento</span><strong>{mostrarData(proximaAurox?.vencimento)}</strong></div>
+       </div>:<Vazio>Contrato ainda não encontrado.</Vazio>}
+       {superadmin&&contratoAurox?.valor==null&&<div className="mt-4 space-y-2">
+        <Campo label="Valor mensal do contrato"><input type="number" min="0.01" step="0.01" className={input} value={preco} onChange={e=>setPreco(e.target.value)}/></Campo>
+        <Campo label="Loja"><select className={input} value={lojaAurox} onChange={e=>setLojaAurox(e.target.value)}>{lojas.map(x=><option key={x.codigo} value={x.codigo}>{x.nome}</option>)}</select></Campo>
+        <button className={principal} onClick={()=>void definirAurox()} disabled={!preco}>Definir uma vez</button></div>}
+       <details className="mt-4 border-t border-border pt-3 text-xs"><summary className="cursor-pointer font-medium text-primary">Ver histórico da assinatura</summary>
+        <div className="mt-3 space-y-2">{mensalidades.map(p=><div className="flex flex-wrap justify-between gap-2 border-b border-border/60 py-2" key={p.id}>
+         <span>{mostrarData(p.vencimento)} · Competência {p.numero}</span><span>{reais(p.valor)} · {p.status==='pago'?'Quitada':p.valor==null?'A definir':'Pendente'}</span>
+         {p.valor!=null&&p.status!=='pago'&&superadmin&&<button className={btn} onClick={()=>abrirParcela(p)}>Registrar pagamento</button>}</div>)}</div>
+       </details>
+      </Bloco>
+     </aside>
+    </div>
    </div>}
    {aba==='vendas'&&<div className="space-y-4">
     <Bloco titulo="Reconciliação de vendas" descricao="Somente faturas com lead marcado como vendido; um faturamento por lead. Entrada, boleto e financiamento são componentes distintos.">
@@ -469,6 +524,58 @@ export default function FinancasPage(){
    </form></div>}
  </main>;
 }
+/** Resumo discreto: uma ocorrência por compromisso, mesmo se houver dezenas de parcelas. */
+function LinhaResumoConta({p,agenda,atrasadas=0,onReceber}:{p:Parcela;agenda?:Agenda;
+ atrasadas?:number;onReceber:(p:Parcela)=>void}){
+ const vencida=dataApenas(p.vencimento)<diaAtual();
+ const recorrencia=agenda?.frequencia==='mensal'?(agenda.repeticoes==null?'Mensal · até cancelar':`Mensal · ${agenda.repeticoes} vezes`):'Pagamento único';
+ const saldo=p.valor==null?null:Math.max(0,Number(p.valor)-Number(p.desconto||0)-Number(p.recebido||0));
+ return <div className="border-b border-border/60 py-3 last:border-0">
+  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.descricao}</p>
+   <p className="mt-1 text-[11px] text-muted-foreground">{p.tipo==='entrada'?'A receber':'A pagar'} · {recorrencia}</p></div>
+   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':p.tipo==='entrada'?'text-emerald-500':'text-foreground'}`}>{reais(saldo)}</strong></div>
+  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}
+   {atrasadas>1&&` · ${atrasadas} competências atrasadas`}</span>
+   {saldo!=null&&saldo>0&&<button type="button" className="shrink-0 font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button>}</div>
+ </div>;
+}
+function LinhaResumoPromessa({p,onReceber}:{p:Promessa;onReceber:(p:Promessa)=>void}){
+ const saldo=Math.max(0,Number(p.valor)-Number(p.recebido));const vencida=dataApenas(p.vencimento)<diaAtual();
+ return <div className="border-b border-border/60 py-3 last:border-0">
+  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.cliente||`Venda #${p.lead_id}`}</p>
+   <p className="mt-1 text-[11px] text-muted-foreground">A receber · {nomesComponente[p.componente]}</p></div>
+   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':'text-emerald-500'}`}>{reais(saldo)}</strong></div>
+  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}</span>
+   <button type="button" className="font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button></div>
+ </div>;
+}
+
+/** Resumo discreto: uma ocorrência por compromisso, mesmo se houver dezenas de parcelas. */
+function LinhaResumoConta({p,agenda,atrasadas=0,onReceber}:{p:Parcela;agenda?:Agenda;
+ atrasadas?:number;onReceber:(p:Parcela)=>void}){
+ const vencida=dataApenas(p.vencimento)<diaAtual();
+ const recorrencia=agenda?.frequencia==='mensal'?(agenda.repeticoes==null?'Mensal · até cancelar':`Mensal · ${agenda.repeticoes} vezes`):'Pagamento único';
+ const saldo=p.valor==null?null:Math.max(0,Number(p.valor)-Number(p.desconto||0)-Number(p.recebido||0));
+ return <div className="border-b border-border/60 py-3 last:border-0">
+  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.descricao}</p>
+   <p className="mt-1 text-[11px] text-muted-foreground">{p.tipo==='entrada'?'A receber':'A pagar'} · {recorrencia}</p></div>
+   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':p.tipo==='entrada'?'text-emerald-500':'text-foreground'}`}>{reais(saldo)}</strong></div>
+  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}
+   {atrasadas>1&&` · ${atrasadas} competências atrasadas`}</span>
+   {saldo!=null&&saldo>0&&<button type="button" className="shrink-0 font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button>}</div>
+ </div>;
+}
+function LinhaResumoPromessa({p,onReceber}:{p:Promessa;onReceber:(p:Promessa)=>void}){
+ const saldo=Math.max(0,Number(p.valor)-Number(p.recebido));const vencida=dataApenas(p.vencimento)<diaAtual();
+ return <div className="border-b border-border/60 py-3 last:border-0">
+  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.cliente||`Venda #${p.lead_id}`}</p>
+   <p className="mt-1 text-[11px] text-muted-foreground">A receber · {nomesComponente[p.componente]}</p></div>
+   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':'text-emerald-500'}`}>{reais(saldo)}</strong></div>
+  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}</span>
+   <button type="button" className="font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button></div>
+ </div>;
+}
+
 function LinhaParcela({p,pagamentos,onReceber,onEstornar,onVencimento,superadmin}:{p:Parcela;pagamentos:PagamentoParcela[];
  onReceber:(p:Parcela)=>void;onEstornar:(p:Parcela,pagamento:PagamentoParcela)=>Promise<void>;
  onVencimento:(p:Parcela)=>Promise<void>;superadmin:boolean}){
@@ -476,10 +583,10 @@ function LinhaParcela({p,pagamentos,onReceber,onEstornar,onVencimento,superadmin
  const bloqueada=p.origem==='aurox'&&!superadmin;
  const vencido=!!saldo&&saldo>0&&dataApenas(p.vencimento)<diaAtual();
  const aReceber=p.tipo==='entrada'&&!vencido;
- const cor=vencido||p.tipo==='saida'?'border-rose-500/35 bg-rose-500/5':'border-emerald-500/35 bg-emerald-500/5';
+ const cor=vencido?'border-rose-500/30 bg-rose-500/5':aReceber?'border-emerald-500/25 bg-emerald-500/[.035]':'border-border/70 bg-background/25';
  return <div className={`rounded-xl border px-3 py-3 mb-2 ${cor}`}>
   <div className="flex flex-wrap items-center gap-3"><div className="min-w-40 flex-1"><strong className="text-sm">{p.descricao}</strong>
-   <p className={`text-xs ${aReceber?'text-emerald-500':'text-rose-500'}`}>{p.cliente||`Loja ${p.loja}`} · Parcela {p.numero} · {vencido?'Vencida':p.tipo==='entrada'?'A receber':'A pagar'}</p></div>
+   <p className={`text-xs ${vencido?'text-rose-500':aReceber?'text-emerald-500':'text-muted-foreground'}`}>{p.cliente||`Loja ${p.loja}`} · Parcela {p.numero} · {vencido?'Vencida':p.tipo==='entrada'?'A receber':'A pagar'}</p></div>
    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Clock3 size={13}/>{mostrarData(p.vencimento)}</span>
    <div className="text-right text-sm"><strong>{reais(p.valor)}</strong><p className="text-xs">{p.status==='pago'?'Quitada':p.status==='parcial'?'Recebimento parcial':p.status==='negociado'?'Negociada':p.valor==null?'Prevista':p.status}</p></div>
    {!bloqueada&&saldo!=null&&saldo>0&&p.status!=='cancelado'&&<button className={btn} onClick={()=>onReceber(p)}>Dar baixa</button>}
