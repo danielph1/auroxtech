@@ -12,12 +12,12 @@ export default function LoginPage() {
   const [loading,setLoading]=useState(false);
   const [mostrar,setMostrar]=useState(false);
   const [form,setForm]=useState({login:'',senha:''});
-  useEffect(()=>{if(isAuthenticated)router.replace('/painel');},[isAuthenticated,router]);
+  useEffect(()=>{if(isAuthenticated)router.replace('/inicio');},[isAuthenticated,router]);
   async function entrar(e:FormEvent){
     e.preventDefault();
     if(!form.login.trim()||!form.senha){toast.error('Informe seu login e senha.');return;}
     setLoading(true);
-    try{await login({login:form.login.trim(),senha:form.senha});router.replace('/painel');}
+    try{await login({login:form.login.trim(),senha:form.senha});router.replace('/inicio');}
     catch(err:any){toast.error(err?.response?.data?.error||'Não foi possível acessar. Confira seus dados.');}
     finally{setLoading(false);}
   }

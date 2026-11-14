@@ -10,7 +10,7 @@ export default function RootPage() {
   const { isAuthenticated, isLoading } = useAuth();
   useEffect(() => {
     if (isLoading) return;
-    router.replace(isAuthenticated ? '/painel' : '/login');
+    router.replace(isAuthenticated ? '/inicio' : '/login');
   }, [isAuthenticated, isLoading, router]);
   return (
     <div className="flex min-h-screen items-center justify-center">

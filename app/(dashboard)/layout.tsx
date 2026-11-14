@@ -4,6 +4,7 @@ import {usePathname} from 'next/navigation';
 import {X} from 'lucide-react';
 import './workspace.css';
 import './nova-studio.css';
+import './studio-ui.css';
 import {ProtectedRoute} from '@/components/protected-route';
 import {SidebarNav} from '@/components/sidebar-nav';
 import {AuroxTopbar} from '@/components/aurox-topbar';

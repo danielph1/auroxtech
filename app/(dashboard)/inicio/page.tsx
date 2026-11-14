@@ -5,6 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 import {Area,AreaChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
 import {ArrowUpRight,BarChart3,CalendarDays,CheckCheck,ClipboardCheck,FileText,MessageCircleMore,RefreshCw,Users} from 'lucide-react';
 import {api} from '@/lib/api';import {useAuth} from '@/contexts/auth-context';
+import {LeadQuickDetail} from '@/components/lead-quick-detail';
 
 type Lead={id:number;nome_lead?:string;data_lead?:string;respondeu?:boolean;gerou_ficha?:boolean;venda_concluida?:boolean;data_venda?:string;origem?:string};
 type Tarefa={id:number;titulo?:string;resposta?:string|null;destinatario_nome?:string};
@@ -16,6 +17,7 @@ export default function InicioPage(){
  const comercial=['superadmin','admin','gerente','marketing','vendedor'].includes(cargo);
  const podeMetricas=['gerente','admin','superadmin','marketing'].includes(cargo);
  const [empresa,setEmpresa]=useState('');
+ const [leadAberto,setLeadAberto]=useState<number|null>(null);
  const empresasQ=useQuery({queryKey:['inicio-empresas',user?.id],enabled:superadmin,queryFn:async()=>asArray<{id:number;nome:string}>((await api.get('/faturamento/empresas')).data)});
  useEffect(()=>{if(superadmin&&empresasQ.data?.length&&!empresa)setEmpresa(String(empresasQ.data[0].id));},[superadmin,empresasQ.data,empresa]);
  const empresaId=superadmin?Number(empresa):Number(user?.empresa_id||0);
@@ -44,7 +46,7 @@ export default function InicioPage(){
   <div className="nova-dashboard-grid"><section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Evolução comercial</h2><p>Leads e vendas por mês, a partir dos registros acessíveis.</p></div>{podeMetricas&&<Link href="/metricas" className="nova-secondary-link">Detalhes <ArrowUpRight size={14}/></Link>}</div>
    {leadsQ.isError?<div className="nova-empty">Não foi possível carregar os leads deste escopo.</div>:<div style={{width:'100%',height:280}}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart} margin={{top:10,right:10,left:-22,bottom:0}}><defs><linearGradient id="novaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7771f5" stopOpacity={.24}/><stop offset="100%" stopColor="#7771f5" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 7" vertical={false} stroke="rgba(150,154,180,.18)"/><XAxis dataKey="mes" tickLine={false} axisLine={false} fontSize={11}/><YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={11}/><Tooltip contentStyle={{borderRadius:12,fontSize:12}}/><Area type="monotone" dataKey="leads" stroke="#6968eb" strokeWidth={2.5} fill="url(#novaGrad)" name="Leads"/><Area type="monotone" dataKey="vendas" stroke="#15ae8c" strokeWidth={2} fillOpacity={0} name="Vendas"/></AreaChart></ResponsiveContainer></div>}
   </section><section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Precisam de atenção</h2><p>Atalhos para leads ainda não respondidos.</p></div><Link className="nova-secondary-link" href="/painel">Ver leads <ArrowUpRight size={14}/></Link></div>
-   {naoRespondidos.length?naoRespondidos.map(l=><Link href="/painel" className="nova-list-row" key={l.id}><span className="nova-list-icon"><Users size={17}/></span><span className="min-w-0 flex-1"><strong className="truncate">{l.nome_lead||`Lead #${l.id}`}</strong><small>{l.origem||'Origem não informada'} · Aguardando resposta</small></span><ArrowUpRight size={16} className="text-muted-foreground"/></Link>):<div className="nova-empty">{leadsQ.isLoading?'Carregando dados…':'Nenhum lead pendente de resposta no recorte.'}</div>}
+   {naoRespondidos.length?naoRespondidos.map(l=><button type="button" onClick={()=>setLeadAberto(l.id)} className="nova-list-row w-full text-left" key={l.id}><span className="nova-list-icon"><Users size={17}/></span><span className="min-w-0 flex-1"><strong className="truncate">{l.nome_lead||`Lead #${l.id}`}</strong><small>{l.origem||'Origem não informada'} · Aguardando resposta</small></span><ArrowUpRight size={16} className="text-muted-foreground"/></button>):<div className="nova-empty">{leadsQ.isLoading?'Carregando dados…':'Nenhum lead pendente de resposta no recorte.'}</div>}
   </section></div></>}
   <div className="nova-dashboard-grid"><section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Tarefas em aberto</h2><p>Acompanhamento da rotina da equipe.</p></div><Link href="/tarefas" className="nova-secondary-link">Todas as tarefas <ArrowUpRight size={14}/></Link></div>
    {tasksQ.isError?<div className="nova-empty">Não foi possível carregar tarefas.</div>:tarefasPendentes.length?tarefasPendentes.slice(0,5).map(t=><Link href="/tarefas" className="nova-list-row" key={t.id}><span className="nova-list-icon"><ClipboardCheck size={17}/></span><span className="min-w-0"><strong>{t.titulo||`Tarefa #${t.id}`}</strong><small>{t.destinatario_nome||'Destinatário registrado no sistema'} · Pendente</small></span></Link>):<div className="nova-empty">{superadmin?'Consulte Tarefas para ver todas as empresas sem misturar os indicadores desta empresa.':'Nenhuma tarefa pendente.'}</div>}
@@ -54,5 +56,6 @@ export default function InicioPage(){
     {['admin','gerente','superadmin'].includes(cargo)&&<Link href="/equipe" className="nova-list-row"><span className="nova-list-icon"><BarChart3 size={18}/></span><span><strong>Equipe</strong><small>{equipeQ.data?.length||0} colaborador(es) na consulta atual</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
     {['admin','superadmin'].includes(cargo)&&<Link href="/financas" className="nova-list-row"><span className="nova-list-icon"><RefreshCw size={18}/></span><span><strong>Finanças</strong><small>Contas e recebimentos documentados</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
    </section></div>
+  {leadAberto!==null&&<LeadQuickDetail leadId={leadAberto} onClose={()=>setLeadAberto(null)}/>}
  </div>;
 }

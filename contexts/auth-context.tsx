@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredToken(res.access_token);
       window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
       setUser(res.user as User);
-      router.push('/painel');
+      router.push('/inicio');
     } finally {
       setIsLoading(false);
     }
