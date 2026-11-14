@@ -31,7 +31,7 @@ export default function InicioPage(){
  const chart=useMemo(()=>Array.from({length:6},(_,idx)=>{const d=new Date(hoje.getFullYear(),hoje.getMonth()-5+idx,1),key=keyMes(d);return {mes:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),leads:leads.filter(l=>String(l.data_lead||'').slice(0,7)===key).length,vendas:leads.filter(l=>String(l.data_venda||'').slice(0,7)===key).length};}),[leads]);
  const newVisits=leads.filter(l=>{const v=(l as any).data_hora_visita||(l as any).data_agendamento;return v&&String(v).slice(0,10)===new Date().toISOString().slice(0,10)});
  const naoRespondidos=leads.filter(l=>!l.respondeu).slice(0,4),tarefasPendentes=tarefas.filter(t=>t.resposta==null);
- return <div className="space-y-5">
+ return <div className="aurox-home-page space-y-5">
   <div className="nova-page-heading"><div><span className="nova-label">Central de operações</span><h1 className="mt-2">Bom trabalho, {String(user?.nome||user?.login||'equipe').split(' ')[0]}.</h1><p>Dados reais das suas permissões. Um resumo para decidir o que fazer agora.</p></div>
    <div className="flex items-end gap-2">{superadmin&&<label className="nova-field">Empresa<select value={empresa} onChange={e=>setEmpresa(e.target.value)}><option value="">Selecione</option>{(empresasQ.data||[]).map(x=><option key={x.id} value={String(x.id)}>{x.nome}</option>)}</select></label>}<Link className="nova-button" href="/agenda"><CalendarDays size={17}/>Minha agenda</Link></div>
   </div>

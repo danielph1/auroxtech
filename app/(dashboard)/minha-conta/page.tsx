@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { compressAvatar } from '@/lib/compress-image';
+import { AuroxAvatarEditor } from '@/components/aurox-avatar-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,12 +47,11 @@ export default function MinhaContaPage() {
   async function foto(file?:File) {
     if (!file) return;
     try {
-      const compressed = await compressAvatar(file);
-      const fd = new FormData();fd.append('foto', compressed);
+      const fd = new FormData();fd.append('foto', file);
       const { data } = await api.post('/conta', fd);
       setDados((d:any) => ({ ...d, foto_url:data.foto_url }));
       toast.success('Foto atualizada.');
-    } catch (e:any) { toast.error(e?.response?.data?.error || 'Não foi possível atualizar a foto.'); }
+    } catch (e:any) { toast.error(e?.response?.data?.error || 'Não foi possível atualizar a foto.'); throw e; }
   }
 
   return <main className="perfil-aurox-v4">
@@ -66,11 +65,7 @@ export default function MinhaContaPage() {
         <section className="perfil-v4-profile">
           <div className="perfil-v4-cover" aria-hidden="true"><span/><span/><span/></div>
           <div className="perfil-v4-person">
-            <label className="perfil-v4-avatar" title="Alterar foto de perfil">
-              {dados.foto_url ? <img src={dados.foto_url} alt="Sua foto de perfil"/> : <span>{String(nome||login||'?').slice(0,1).toUpperCase()}</span>}
-              <span className="perfil-v4-camera"><Camera size={15}/></span>
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={e => {void foto(e.target.files?.[0]);e.target.value='';}}/>
-            </label>
+            <AuroxAvatarEditor fotoUrl={dados.foto_url} nome={nome||login} onSave={async file=>{await foto(file);}} />
             <h2>{nome || login || (carregando?'Carregando…':'Seu perfil')}</h2>
             <p>@{login || '—'}</p>
             <div className="perfil-v4-tags"><span><ShieldCheck size={13}/> {String(dados.tipo || 'Usuário').replace('_',' ')}</span>{dados.loja && <span><MapPin size={13}/> Loja {dados.loja}</span>}</div>

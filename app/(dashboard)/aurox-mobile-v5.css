@@ -1,0 +1,41 @@
+/* AUROX: reparos de hierarquia responsiva sem alterar os dados das paginas. */
+.nova-app-shell,.nova-content-shell,.nova-workspace-main{min-width:0}
+.nova-workspace-main{overflow-x:clip}
+.aurox-home-page .nova-page-heading>div{min-width:0}
+.aurox-home-page .nova-page-heading .nova-field{min-width:0}
+.aurox-home-page .nova-page-heading select{width:100%;max-width:100%;min-width:0}
+.aurox-home-page .nova-dashboard-grid>section,.aurox-home-page .nova-metric-grid>*{min-width:0}
+.aurox-home-page .recharts-responsive-container{min-width:0}
+@media(max-width:900px){
+ .aurox-home-page .nova-page-heading{display:flex;flex-direction:column;align-items:stretch;gap:16px;margin-bottom:20px}
+ .aurox-home-page .nova-page-heading>div:first-child{width:100%;max-width:none}
+ .aurox-home-page .nova-page-heading>div:last-child{display:flex;align-items:end;flex-wrap:wrap;width:100%;gap:12px}
+ .aurox-home-page .nova-page-heading .nova-field{flex:1 1 195px;max-width:none}
+ .aurox-home-page .nova-page-heading .nova-button{flex:0 0 auto;min-height:43px;white-space:nowrap;justify-content:center}
+ .nova-sidebar-container{z-index:112!important;visibility:hidden;pointer-events:none}
+ .nova-sidebar-container.is-open{visibility:visible;pointer-events:auto}
+ .nova-mobile-overlay{z-index:110!important}
+ .nova-mobile-dock{z-index:80!important}
+ .nova-workspace-main{padding-bottom:calc(125px + env(safe-area-inset-bottom))}
+}
+@media(max-width:600px){
+ .aurox-home-page .nova-page-heading h1{font-size:clamp(25px,6.6vw,31px);line-height:1.17;max-width:100%}
+ .aurox-home-page .nova-page-heading p{max-width:38ch;line-height:1.55}
+ .aurox-home-page .nova-page-heading>div:last-child{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
+ .aurox-home-page .nova-page-heading .nova-field{min-width:0;width:100%}
+ .aurox-home-page .nova-page-heading .nova-button{font-size:12px;padding:0 12px;min-height:43px}
+ .aurox-home-page .nova-dashboard-grid{grid-template-columns:minmax(0,1fr);gap:13px}
+ .aurox-home-page .nova-panel-pad{padding:14px}
+ .aurox-home-page .nova-panel-head{align-items:flex-start}
+ .aurox-home-page .nova-metric-grid{gap:10px}
+ .aurox-home-page .nova-metric-card{min-width:0}
+ .aurox-home-page .nova-metric-card .nova-metric-top span:first-child{overflow-wrap:break-word}
+ .nova-workspace-main{padding-inline:14px}
+ .nova-mobile-dock{width:calc(100vw - 22px);max-width:470px}
+}
+@media(max-width:360px){
+ .aurox-home-page .nova-page-heading>div:last-child{grid-template-columns:1fr}
+ .aurox-home-page .nova-page-heading .nova-button{width:100%}
+ .aurox-home-page .nova-metric-grid{grid-template-columns:1fr}
+ .nova-topbar-main{gap:5px;padding-inline:9px}
+}
