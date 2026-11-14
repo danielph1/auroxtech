@@ -1,122 +1,64 @@
 'use client';
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/auth-context';
-import { useI18n } from '@/contexts/i18n-context';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CheckSquare, Square, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import {useMemo,useState,type FormEvent} from 'react';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
+import {useAuth} from '@/contexts/auth-context';
+import {api} from '@/lib/api';
+import {AuroxModalBase} from '@/components/aurox-modal-base';
+import {toast} from 'sonner';
+import {Target,Plus,CheckCircle2,Clock3,ChevronRight,Search,Trash2,Users,Flag} from 'lucide-react';
 
-type Meta = { id:number; titulo:string; valor_objetivo:number|null; destinatario_nome?:string|null;
-  destinatario_tipo?:string|null; destinatario_loja?:string|null; concluida?:boolean };
-type Empresa = {id:number;nome:string};
-type Loja = {codigo:string;nome:string};
-type Usuario = {id:number;nome:string;tipo:string};
-
-export default function MetasPage() {
-  const {user} = useAuth();
-  const {t} = useI18n();
-  const qc = useQueryClient();
-  const pode = ['admin','gerente','superadmin'].includes(String(user?.tipo||''));
-  const superadmin = String(user?.tipo||'')==='superadmin';
-  const [empresa,setEmpresa] = useState('');
-  const [titulo,setTitulo] = useState('');
-  const [objetivo,setObjetivo] = useState('');
-  const [alvo,setAlvo] = useState('tipo:vendedor');
-  const [selecionando,setSelecionando] = useState(false);
-  const [selecionados,setSelecionados] = useState<number[]>([]);
-  const [busy,setBusy] = useState(false);
-
-  const {data=[],isLoading,error} = useQuery<Meta[]>({queryKey:['metas'],queryFn:async()=>(await api.get('/metas')).data,
-    refetchInterval:30000,refetchOnWindowFocus:true});
-  const metas = Array.isArray(data) ? data : [];
-  const {data:empresas=[]} = useQuery<Empresa[]>({queryKey:['metas-empresas'],
-    queryFn:async()=>(await api.get('/integracoes/empresas')).data,enabled:pode&&superadmin});
-  const {data:usuarios=[]} = useQuery<Usuario[]>({queryKey:['metas-usuarios',empresa,superadmin],
-    queryFn:async()=> superadmin
-      ? (await api.get('/gestao-usuarios',{params:{empresa_id:Number(empresa)}})).data?.usuarios||[]
-      : (await api.get('/usuarios')).data,
-    enabled:pode&&(!superadmin||!!empresa)});
-  const {data:lojas=[]} = useQuery<Loja[]>({queryKey:['metas-lojas',empresa,superadmin],
-    queryFn:async()=>(await api.get('/lojas-opcoes',superadmin?{params:{empresa_id:Number(empresa)}}:{})).data,
-    enabled:pode&&(!superadmin||!!empresa)});
-
-  function toggle(id:number){setSelecionados(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);}
-  async function criar() {
-    if(!titulo.trim()||!alvo||superadmin&&!empresa)return toast.error(t('metas.fill'));
-    setBusy(true);
-    try {
-      const body: Record<string,unknown> = {titulo:titulo.trim(),valor_objetivo:objetivo||null};
-      if(superadmin)body.empresa_id=Number(empresa);
-      if(alvo.startsWith('tipo:'))body.destinatario_tipo=alvo.slice(5);
-      else if(alvo.startsWith('loja:'))body.destinatario_loja=alvo.slice(5);
-      else body.destinatario_id=Number(alvo);
-      await api.post('/metas',body);setTitulo('');setObjetivo('');
-      toast.success(t('metas.created'));await qc.invalidateQueries({queryKey:['metas']});
-    }catch(e:any){toast.error(e?.response?.data?.error||t('metas.create_error'));}finally{setBusy(false);}
-  }
-  async function alterar(ids:number[],concluida:boolean){
-    if(!ids.length)return;setBusy(true);
-    try{await api.patch('/metas',{ids,concluida});setSelecionados([]);setSelecionando(false);
-      toast.success(t('metas.updated'));await qc.invalidateQueries({queryKey:['metas']});}
-    catch(e:any){toast.error(e?.response?.data?.error||t('metas.update_error'));}finally{setBusy(false);}
-  }
-  async function excluir(ids:number[]){
-    if(!ids.length||!confirm(`${t('metas.confirm_delete')} (${ids.length})`))return;
-    setBusy(true);
-    try{await api.delete('/metas',{data:{ids}});setSelecionados([]);setSelecionando(false);
-      toast.success(t('metas.deleted'));await qc.invalidateQueries({queryKey:['metas']});}
-    catch(e:any){toast.error(e?.response?.data?.error||t('metas.delete_error'));}finally{setBusy(false);}
-  }
-  const todos=metas.length>0 && selecionados.length===metas.length;
-  return <div className="mx-auto max-w-4xl space-y-4 pb-28">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h1 className="text-3xl font-bold">{t('page.metas.title')}</h1>
-      {pode&&<div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={()=>{setSelecionando(v=>!v);setSelecionados([]);}}>{selecionando?t('common.cancel_selection'):t('metas.select')}</Button>
-        {selecionando&&<Button variant="outline" onClick={()=>setSelecionados(todos?[]:metas.map(m=>m.id))}>{todos?t('common.deselect_all'):t('common.select_all')}</Button>}
-        {selecionados.length>0&&<>
-          <Button variant="outline" disabled={busy} onClick={()=>alterar(selecionados,true)}>{t('metas.complete_selected')} ({selecionados.length})</Button>
-          <Button variant="outline" disabled={busy} onClick={()=>alterar(selecionados,false)}>{t('metas.reopen_selected')}</Button>
-          <Button variant="destructive" disabled={busy} onClick={()=>excluir(selecionados)}><Trash2 className="mr-1 h-4 w-4"/>{t('common.delete')} ({selecionados.length})</Button>
-        </>}
-      </div>}
-    </div>
-    {pode&&<Card><CardContent className="flex flex-wrap gap-2 py-4">
-      {superadmin&&<select aria-label={t('metas.company')} className="min-w-[160px] rounded border bg-background px-2" value={empresa}
-        onChange={e=>{setEmpresa(e.target.value);setAlvo('tipo:vendedor');}}>
-        <option value="">{t('metas.select_company')}</option>
-        {empresas.map(e=><option key={e.id} value={e.id}>{e.nome}</option>)}
-      </select>}
-      <Input placeholder={t('metas.title_placeholder')} maxLength={180} value={titulo} onChange={e=>setTitulo(e.target.value)} className="min-w-[180px] flex-1"/>
-      <Input placeholder={t('metas.objective')} inputMode="decimal" value={objetivo} onChange={e=>setObjetivo(e.target.value)} className="w-28"/>
-      <select aria-label={t('metas.recipient')} className="min-w-[170px] rounded border bg-background px-2" value={alvo} onChange={e=>setAlvo(e.target.value)}>
-        <option value="tipo:vendedor">{t('metas.sellers')}</option>
-        <option value="tipo:guariba">{t('metas.guards')}</option>
-        <option value="tipo:mecanico">{t('metas.mechanics')}</option>
-        <option value="tipo:documentista">{t('metas.documental')}</option>
-        {lojas.map(l=><option key={l.codigo} value={'loja:'+l.codigo}>{t('metas.store')} {l.nome||l.codigo}</option>)}
-        {usuarios.map(v=><option key={v.id} value={String(v.id)}>{v.nome} · {v.tipo}</option>)}
-      </select>
-      <Button disabled={busy||!titulo.trim()||(superadmin&&!empresa)} onClick={criar}>{t('metas.create')}</Button>
-    </CardContent></Card>}
-    {isLoading&&<p>{t('common.loading')}</p>}
-    {!!error&&<p className="text-rose-400">{t('metas.load_error')}</p>}
-    {metas.map(m=><Card key={m.id}><CardContent className="flex items-center gap-3 py-3">
-      {pode&&selecionando&&<button type="button" aria-label={`${t('metas.select')} ${m.titulo}`} onClick={()=>toggle(m.id)}>
-        {selecionados.includes(m.id)?<CheckSquare className="text-primary"/>:<Square/>}
-      </button>}
-      <div className="min-w-0 flex-1"><div className="break-words font-semibold">{m.titulo}</div>
-        <p className="text-sm text-muted-foreground">{t('metas.objective')} {m.valor_objetivo??'—'} · {m.destinatario_nome||m.destinatario_tipo||m.destinatario_loja||t('metas.all')}
-          {m.concluida?` · ${t('metas.completed')}`:''}</p></div>
-      {pode&&!selecionando&&<div className="flex flex-wrap gap-1">
-        <Button disabled={busy} size="sm" variant="outline" onClick={()=>alterar([m.id],!m.concluida)}>{m.concluida?t('metas.reopen'):t('metas.complete')}</Button>
-        <Button disabled={busy} size="sm" variant="outline" onClick={()=>excluir([m.id])}>{t('common.delete')}</Button>
-      </div>}
-    </CardContent></Card>)}
-    {!isLoading&&!metas.length&&<p className="text-sm text-muted-foreground">{t('metas.empty')}</p>}
-  </div>;
+type Meta={id:number;titulo:string;descricao?:string|null;valor_objetivo?:number|null;unidade?:string;periodo_inicio?:string;periodo_fim?:string;destinatario_nome?:string;destinatario_id?:number|null;destinatario_tipo?:string|null;destinatario_loja?:string|null;concluida?:boolean;criador_nome?:string};
+type Resposta={meta_id:number;usuario_id:number;concluida:boolean;observacao:string;updated_at?:string;colaborador?:string};
+type Empresa={id:number;nome:string};type Loja={codigo:string;nome:string};type Usuario={id:number;nome:string;tipo:string};
+const tipos:[string,string][]=[['vendedor','Vendedores'],['guariba','Guaribas'],['mecanico','Mecânicos'],['documentista','Documentistas']];
+const dia=(x?:string)=>x?String(x).slice(0,10).split('-').reverse().join('/'):'—';
+export default function MetasPage(){
+ const {user}=useAuth(),qc=useQueryClient();const role=String(user?.tipo||'').toLowerCase();const gestor=['superadmin','admin','gerente'].includes(role),superadmin=role==='superadmin';
+ const [empresa,setEmpresa]=useState(''),[nova,setNova]=useState(false),[detalhe,setDetalhe]=useState<Meta|null>(null),[busy,setBusy]=useState(false),[search,setSearch]=useState(''),[filter,setFilter]=useState('todas');
+ const [titulo,setTitulo]=useState(''),[objetivo,setObjetivo]=useState(''),[descricao,setDescricao]=useState(''),[unidade,setUnidade]=useState('un'),[inicio,setInicio]=useState(''),[fim,setFim]=useState(''),[dest,setDest]=useState('tipo:vendedor');
+ const [observacao,setObservacao]=useState(''),[concluida,setConcluida]=useState(false),[modoEditar,setModoEditar]=useState(false);
+ const [editMeta,setEditMeta]=useState({titulo:'',descricao:'',valor_objetivo:'',unidade:'un',periodo_inicio:'',periodo_fim:''});
+ const listaQ=useQuery<Meta[]>({queryKey:['metas'],queryFn:async()=>{const r=await api.get('/metas');return Array.isArray(r.data)?r.data:[]},refetchInterval:30000});const metas=listaQ.data||[];
+ const ids=metas.slice(0,100).map(x=>x.id).join(',');
+ const respostasQ=useQuery<Resposta[]>({queryKey:['metas-respostas',ids,user?.id],queryFn:async()=>{if(!ids)return [];const r=await api.get('/metas/respostas',{params:{ids}});return Array.isArray(r.data)?r.data:[]},enabled:!!ids,refetchInterval:30000});
+ const respostas=respostasQ.data||[];
+ const empresasQ=useQuery<Empresa[]>({queryKey:['metas-empresas'],queryFn:async()=>{const r=await api.get('/integracoes/empresas');return Array.isArray(r.data)?r.data:[]},enabled:gestor&&superadmin});
+ const equipeQ=useQuery<Usuario[]>({queryKey:['metas-usuarios',empresa],queryFn:async()=>{const r=superadmin?await api.get('/gestao-usuarios',{params:{empresa_id:Number(empresa)}}):await api.get('/usuarios');return Array.isArray(r.data)?r.data:Array.isArray(r.data?.usuarios)?r.data.usuarios:[]},enabled:gestor&&(!superadmin||!!empresa)});
+ const lojasQ=useQuery<Loja[]>({queryKey:['metas-lojas',empresa],queryFn:async()=>{const r=await api.get('/lojas-opcoes',superadmin?{params:{empresa_id:Number(empresa)}}:{});return Array.isArray(r.data)?r.data:[]},enabled:gestor&&(!superadmin||!!empresa)});
+ const minhas=(m:Meta)=>respostas.find(r=>r.meta_id===m.id&&Number(r.usuario_id)===Number(user?.id));
+ const podeResponder=(m:Meta)=>m.destinatario_id?Number(m.destinatario_id)===Number(user?.id):Boolean((!m.destinatario_tipo||String(m.destinatario_tipo).toLowerCase()===role)&&(!m.destinatario_loja||String(m.destinatario_loja).toUpperCase()===String(user?.loja||'').toUpperCase()));
+ const complete=(m:Meta)=>!!m.concluida||!!minhas(m)?.concluida;
+ const records=useMemo(()=>metas.filter(m=>(!search||[m.titulo,m.descricao,m.destinatario_nome].some(x=>String(x||'').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))))&&(filter==='todas'||(filter==='feitas'?complete(m):!complete(m)))),[metas,respostas,search,filter]);
+ const done=metas.filter(complete).length;
+ const refresh=async()=>{await Promise.all([qc.invalidateQueries({queryKey:['metas']}),qc.invalidateQueries({queryKey:['metas-respostas']})]);};
+ async function criar(e:FormEvent){e.preventDefault();if(!gestor||busy||!titulo.trim()||superadmin&&!empresa)return;setBusy(true);
+  const payload:any={titulo:titulo.trim(),descricao:descricao.trim(),valor_objetivo:objetivo===''?null:Number(objetivo),unidade,periodo_inicio:inicio||null,periodo_fim:fim||null};
+  if(dest.startsWith('tipo:'))payload.destinatario_tipo=dest.slice(5);else if(dest.startsWith('loja:'))payload.destinatario_loja=dest.slice(5);else payload.destinatario_id=Number(dest);
+  if(superadmin)payload.empresa_id=Number(empresa);
+  try{await api.post('/metas',payload);toast.success('Meta criada');setNova(false);setTitulo('');setDescricao('');setObjetivo('');await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Falha ao criar meta')}finally{setBusy(false)}
+ }
+ async function alterarGlobal(m:Meta){if(!gestor||busy)return;setBusy(true);try{await api.patch('/metas',{ids:[m.id],concluida:!m.concluida});toast.success('Meta atualizada');setDetalhe(null);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Erro ao alterar meta')}finally{setBusy(false)}}
+ async function salvarMinha(e:FormEvent){e.preventDefault();if(!detalhe||busy)return;setBusy(true);try{await api.patch('/metas/respostas',{meta_id:detalhe.id,concluida,observacao:observacao.slice(0,2000)});toast.success('Andamento salvo');setDetalhe(null);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível registrar a resposta. Confira a migração.')}finally{setBusy(false)}}
+ async function salvarEdicao(e:FormEvent){e.preventDefault();if(!detalhe||!gestor||busy)return;setBusy(true);try{await api.patch('/metas/editar',{id:detalhe.id,...editMeta});toast.success('Meta editada');setDetalhe(null);setModoEditar(false);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Falha ao editar meta')}finally{setBusy(false)}}
+ async function excluir(m:Meta){if(!gestor||busy||!confirm('Excluir esta meta permanentemente?'))return;setBusy(true);try{await api.delete('/metas',{data:{ids:[m.id]}});toast.success('Meta excluída');setDetalhe(null);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Falha ao excluir meta')}finally{setBusy(false)}}
+ function abrir(m:Meta){setDetalhe(m);setModoEditar(false);setEditMeta({titulo:m.titulo,descricao:m.descricao||'',valor_objetivo:m.valor_objetivo==null?'':String(m.valor_objetivo),unidade:m.unidade||'un',periodo_inicio:String(m.periodo_inicio||'').slice(0,10),periodo_fim:String(m.periodo_fim||'').slice(0,10)});setConcluida(!!minhas(m)?.concluida);setObservacao(minhas(m)?.observacao||'');}
+ return <div className="studio-operational"><header className="studio-users-header"><div><span className="studio-eyebrow">Desenvolvimento e resultados</span><h1>Metas</h1><p>Acompanhe objetivos, conclusão da equipe e justificativas por colaborador.</p></div>{gestor&&<button type="button" className="studio-btn primary" onClick={()=>setNova(true)}><Plus size={17}/>Adicionar meta</button>}</header>
+ <section className="studio-summary"><div><span className="studio-summary-icon"><Target size={20}/></span><strong>{metas.length}</strong><small>Metas visíveis</small></div><div><span className="studio-summary-icon success"><CheckCircle2 size={20}/></span><strong>{done}</strong><small>Concluídas</small></div><div><span className="studio-summary-icon warn"><Clock3 size={20}/></span><strong>{metas.length-done}</strong><small>Em acompanhamento</small></div></section>
+ <section className="studio-users-surface"><div className="studio-users-tools"><div className="studio-users-search"><Search size={16}/><input placeholder="Pesquisar meta ou destinatário" aria-label="Buscar metas" value={search} onChange={e=>setSearch(e.target.value)}/></div><select aria-label="Filtrar metas" value={filter} onChange={e=>setFilter(e.target.value)}><option value="todas">Todas as metas</option><option value="pendentes">Em acompanhamento</option><option value="feitas">Concluídas</option></select></div>
+ {listaQ.isLoading?<div className="studio-empty">Carregando metas…</div>:listaQ.isError?<div className="studio-error">Não foi possível carregar as metas.</div>:!records.length?<div className="studio-empty">Nenhuma meta neste filtro.</div>:<div className="studio-operational-list">{records.map(m=><button type="button" key={m.id} className="studio-operational-row" onClick={()=>abrir(m)}><span className="studio-operational-check"><Flag size={17}/></span><span className="studio-operational-name"><strong>{m.titulo}</strong><small>{m.destinatario_nome||m.destinatario_tipo||m.destinatario_loja||'Equipe'} · Objetivo {m.valor_objetivo==null?'não informado':m.valor_objetivo+' '+(m.unidade||'un')}{m.periodo_fim?' · até '+dia(m.periodo_fim):''}</small></span><span className={'studio-status '+(complete(m)?'ok':'off')}>{complete(m)?'Concluída':'Em andamento'}</span><ChevronRight size={17}/></button>)}</div>}
+ </section>
+ {nova&&<AuroxModalBase title="Adicionar meta" subtitle="Defina objetivo, destinatários e período." onClose={()=>setNova(false)} footer={<div className="studio-actions"><button type="button" className="studio-btn" onClick={()=>setNova(false)}>Cancelar</button><button type="submit" form="studio-meta-form" className="studio-btn primary" disabled={busy||!titulo||superadmin&&!empresa}>Criar meta</button></div>}>
+  <form id="studio-meta-form" onSubmit={criar} className="studio-form-grid">{superadmin&&<label className="studio-field">Empresa *<select required value={empresa} onChange={e=>{setEmpresa(e.target.value);setDest('tipo:vendedor')}}><option value="">Selecione</option>{(empresasQ.data||[]).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>}
+   <label className="studio-field">Título *<input required maxLength={180} value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ex.: Realizar 10 vendas"/></label><label className="studio-field">Objetivo<input inputMode="decimal" value={objetivo} onChange={e=>setObjetivo(e.target.value)} placeholder="Quantidade"/></label><label className="studio-field">Unidade<input maxLength={20} value={unidade} onChange={e=>setUnidade(e.target.value)} placeholder="un, vendas, R$"/></label>
+   <label className="studio-field">Destinatário *<select value={dest} onChange={e=>setDest(e.target.value)}>{tipos.map(([id,n])=><option value={'tipo:'+id} key={id}>{n}</option>)}{(lojasQ.data||[]).map(l=><option key={'l'+l.codigo} value={'loja:'+l.codigo}>Loja {l.nome||l.codigo}</option>)}{(equipeQ.data||[]).map(u=><option key={u.id} value={String(u.id)}>{u.nome} · {u.tipo}</option>)}</select></label>
+   <label className="studio-field">Data de início<input type="date" value={inicio} onChange={e=>setInicio(e.target.value)}/></label><label className="studio-field">Data final<input type="date" min={inicio||undefined} value={fim} onChange={e=>setFim(e.target.value)}/></label><label className="studio-field" style={{gridColumn:'1 / -1'}}>Descrição<textarea maxLength={2000} rows={3} value={descricao} onChange={e=>setDescricao(e.target.value)} placeholder="Descreva a meta e seus critérios"/></label>
+  </form>
+ </AuroxModalBase>}
+ {detalhe&&<AuroxModalBase title={detalhe.titulo} subtitle={'Objetivo '+(detalhe.valor_objetivo??'—')+' '+(detalhe.unidade||'')+' · '+(detalhe.destinatario_nome||detalhe.destinatario_tipo||detalhe.destinatario_loja||'Equipe')} onClose={()=>setDetalhe(null)} footer={<div className="studio-actions">{gestor&&<button className="studio-btn danger" disabled={busy} onClick={()=>void excluir(detalhe)} type="button"><Trash2 size={15}/>Excluir</button>}{gestor&&<button className="studio-btn" type="button" disabled={busy} onClick={()=>setModoEditar(v=>!v)}>{modoEditar?'Fechar edição':'Editar dados da meta'}</button>}{gestor&&<button className="studio-btn" disabled={busy} type="button" onClick={()=>void alterarGlobal(detalhe)}>{detalhe.concluida?'Reabrir meta global':'Marcar meta global concluída'}</button>}<button type="button" className="studio-btn" onClick={()=>setDetalhe(null)}>Fechar</button>{podeResponder(detalhe)&&<button type="submit" form="studio-meta-resposta" className="studio-btn primary" disabled={busy}>Salvar minha resposta</button>}</div>}>
+  <div className="studio-form-stack">{modoEditar&&gestor&&<form id="studio-editar-meta" onSubmit={salvarEdicao} className="studio-form-grid"><label className="studio-field">Título<input required maxLength={180} value={editMeta.titulo} onChange={e=>setEditMeta(v=>({...v,titulo:e.target.value}))}/></label><label className="studio-field">Objetivo<input inputMode="decimal" value={editMeta.valor_objetivo} onChange={e=>setEditMeta(v=>({...v,valor_objetivo:e.target.value}))}/></label><label className="studio-field">Unidade<input maxLength={20} value={editMeta.unidade} onChange={e=>setEditMeta(v=>({...v,unidade:e.target.value}))}/></label><label className="studio-field">Início<input type="date" value={editMeta.periodo_inicio} onChange={e=>setEditMeta(v=>({...v,periodo_inicio:e.target.value}))}/></label><label className="studio-field">Fim<input type="date" value={editMeta.periodo_fim} onChange={e=>setEditMeta(v=>({...v,periodo_fim:e.target.value}))}/></label><label className="studio-field" style={{gridColumn:'1/-1'}}>Descrição<textarea maxLength={2000} rows={3} value={editMeta.descricao} onChange={e=>setEditMeta(v=>({...v,descricao:e.target.value}))}/></label><button type="submit" className="studio-btn primary" disabled={busy}>Salvar dados da meta</button></form>}<div className="studio-note"><strong>Descrição e período</strong><p>{detalhe.descricao||'Sem descrição'} · {dia(detalhe.periodo_inicio)} — {dia(detalhe.periodo_fim)}</p></div>
+   {podeResponder(detalhe)&&<form id="studio-meta-resposta" onSubmit={salvarMinha} className="studio-form-stack"><label className="studio-field">Minha situação<select value={concluida?'sim':'nao'} onChange={e=>setConcluida(e.target.value==='sim')}><option value="nao">Em andamento</option><option value="sim">Concluída</option></select></label><label className="studio-field">Minha observação<textarea maxLength={2000} rows={4} value={observacao} onChange={e=>setObservacao(e.target.value)} placeholder="Descreva o resultado ou o motivo"/></label></form>}
+   <div className="studio-meta-responses"><h3><Users size={17}/> Respostas registradas</h3>{respostas.filter(r=>r.meta_id===detalhe.id).length?respostas.filter(r=>r.meta_id===detalhe.id).map(r=><div key={r.usuario_id}><b>{r.colaborador||'Colaborador'}</b><span className={'studio-status '+(r.concluida?'ok':'off')}>{r.concluida?'Concluída':'Em andamento'}</span><p>{r.observacao||'Sem observação'}</p></div>):<p className="text-xs text-muted-foreground">Nenhuma resposta registrada.</p>}</div>
+  </div>
+ </AuroxModalBase>}
+ </div>
 }

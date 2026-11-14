@@ -69,6 +69,8 @@ export default function FaturamentoPage() {
   const [carregandoDoc,setCarregandoDoc]=useState(false);
   const [form,setForm]=useState<any>(null);
   const [salvando,setSalvando]=useState(false);
+  const [liberandoId,setLiberandoId]=useState<number|null>(null);
+  const podeLiberar=['superadmin','admin','gerente','marketing','documentista','documento'].includes(String(user?.tipo||'').toLowerCase());
   const [configAberta,setConfigAberta]=useState(false);
   const [configForm,setConfigForm]=useState<Config>({});
 
@@ -137,6 +139,19 @@ export default function FaturamentoPage() {
       toast.error(await mensagemErroDocumento(e,'Falha ao imprimir. Confira os dados do emissor.'));
     }
   }
+  async function liberarVeiculo(f:any){
+    if(!podeLiberar||liberandoId!=null||!f?.id)return;
+    if(!confirm(`Liberar o veículo ${f.placa||''} para Transferências? A ação também inativa o veículo no estoque desta empresa.`))return;
+    setLiberandoId(Number(f.id));
+    try{
+      const {data}=await api.post('/faturamento/liberar',{id:Number(f.id),...(superadmin?{empresa_id:empresaId}:{})});
+      toast.success(data?.mensagem||'Veículo liberado para Transferências');
+      setAberto((atual:any)=>atual?.id===f.id?{...atual,liberado:true,status:'liberado'}:atual);
+      await qc.invalidateQueries({queryKey:['faturamento']});
+      await qc.invalidateQueries({queryKey:['processos']});
+    }catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível liberar o veículo. Confira a placa e a migration de Transferências.');}
+    finally{setLiberandoId(null);}
+  }
   async function salvar(e:FormEvent){
     e.preventDefault();
     if(!form?.nome?.trim()||!form?.placa?.trim()){toast.error('Nome e placa são obrigatórios');return;}
@@ -180,7 +195,9 @@ export default function FaturamentoPage() {
     <div className="grid gap-3 md:grid-cols-2">
       {(Array.isArray(rows)?rows:[]).map((f:any)=><Card key={f.id} className="cursor-pointer transition hover:border-primary/50" onClick={()=>abrir(f.id)}><CardContent className="flex items-center justify-between gap-3 p-4 sm:p-5">
         <div className="min-w-0"><div className="truncate font-semibold">{f.nome}</div><p className="mt-1 text-sm text-muted-foreground">{f.marca} {f.modelo} · {f.placa}</p><p className="mt-2 text-xs text-muted-foreground">{f.vendedor_nome||'—'} · {f.created_at?new Date(f.created_at).toLocaleDateString('pt-BR'):'—'}</p></div>
-        <div className="shrink-0 text-right"><FileText className="ml-auto mb-2 h-5 w-5 text-primary"/><p className="mt-1 text-xs text-muted-foreground">{f.status||'emitido'}</p></div>
+        <div className="shrink-0 text-right"><FileText className="ml-auto mb-2 h-5 w-5 text-primary"/><p className="mt-1 text-xs text-muted-foreground">{f.liberado?'Liberado':(f.status||'emitido')}</p>
+         {podeLiberar&&!f.liberado&&<button type="button" className="studio-release-button mt-2" disabled={liberandoId===f.id} onClick={e=>{e.stopPropagation();void liberarVeiculo(f);}}>{liberandoId===f.id?'Liberando…':'Liberar veículo'}</button>}
+        </div>
       </CardContent></Card>)}
     </div>
     {!isLoading&&!erroLista&&(!Array.isArray(rows)||!rows.length)&&<p className="rounded-xl border p-8 text-center text-sm text-muted-foreground">Nenhum faturamento encontrado para esta empresa.</p>}
@@ -193,10 +210,7 @@ export default function FaturamentoPage() {
             <Button onClick={()=>imprimir(aberto.id)}><Printer size={16} className="mr-2"/> Imprimir</Button>
             <Button variant="outline" onClick={()=>baixar(aberto.id,aberto.placa)}><Download size={16} className="mr-2"/> Baixar HTML</Button>
             <Button variant="outline" onClick={()=>{setForm({...aberto});setAberto(null);}}>Editar</Button>
-            {!aberto.liberado&&<Button variant="outline" onClick={async()=>{
-              try {await api.post('/faturamento/liberar',{placa:aberto.placa,marca:aberto.marca,modelo:aberto.modelo,ano:aberto.ano_modelo,ficha_id:aberto.ficha_id,lead_id:aberto.lead_id,nome:aberto.nome,empresa_id:aberto.empresa_id});toast.success('Carro liberado');setAberto({...aberto,liberado:true});}
-              catch(e:any){toast.error(e?.response?.data?.error||'Erro ao liberar');}
-            }}>Liberar carro</Button>}
+            {podeLiberar&&!aberto.liberado&&<Button variant="outline" disabled={liberandoId===aberto.id} onClick={()=>void liberarVeiculo(aberto)}>{liberandoId===aberto.id?'Liberando…':'Liberar veículo'}</Button>}
             {['superadmin','admin','gerente'].includes(user?.tipo||'')&&<Button variant="outline" className="text-red-400" onClick={async()=>{
               if(!confirm('Excluir este faturamento?'))return;
               try{await api.post('/faturamento/excluir',{id:aberto.id});setAberto(null);qc.invalidateQueries({queryKey:['faturamento']});toast.success('Excluído');}

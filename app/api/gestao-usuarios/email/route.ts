@@ -14,11 +14,12 @@ export async function PATCH(req:NextRequest){
   const db=await getPool().connect();
   try{
     await db.query('BEGIN');
-    const a=await db.query(`SELECT id,tipo,empresa_id FROM public.usuarios WHERE id=$1 AND ativo=TRUE FOR SHARE`,[session.id]);
-    const t=await db.query(`SELECT id,tipo,empresa_id,email FROM public.usuarios WHERE id=$1 FOR UPDATE`,[id]);
+    const a=await db.query(`SELECT id,tipo,empresa_id,loja FROM public.usuarios WHERE id=$1 AND ativo=TRUE FOR SHARE`,[session.id]);
+    const t=await db.query(`SELECT id,tipo,empresa_id,loja,email FROM public.usuarios WHERE id=$1 FOR UPDATE`,[id]);
     const autor=a.rows[0],alvo=t.rows[0];
     if(!autor||!alvo||!podeAdministrarConta(autor.tipo,alvo.tipo)||
-      (autor.tipo!=='superadmin'&&(!autor.empresa_id||Number(autor.empresa_id)!==Number(alvo.empresa_id)))){
+      (autor.tipo!=='superadmin'&&(!autor.empresa_id||Number(autor.empresa_id)!==Number(alvo.empresa_id)))||
+      (autor.tipo==='gerente'&&String(autor.loja||'').toUpperCase()!==String(alvo.loja||'').toUpperCase())){
       await db.query('ROLLBACK');return NextResponse.json({error:'Conta fora do seu escopo'},{status:403});
     }
     if(!alvo.empresa_id){await db.query('ROLLBACK');return NextResponse.json({error:'Conta sem empresa vinculada'},{status:403});}

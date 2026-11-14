@@ -14,7 +14,7 @@ export function podeCriarCargo(criador:string,destino:string){
 /** Superadmin gerencia qualquer outra conta, incluindo papéis antigos. Nunca desativar a própria conta. */
 export function podeAdministrarConta(criador:string,destino:string){
   const c=String(criador||'').toLowerCase(),d=String(destino||'').toLowerCase();
-  if(!podeGerenciarUsuarios(c))return false;
+  if(!podeGerenciarUsuarios(c)&&c!=='gerente')return false;
   if(c==='superadmin')return true;
   return (NIVEIS[c]??99)<(NIVEIS[d]??0);
 }

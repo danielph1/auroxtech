@@ -1,47 +1,45 @@
 'use client';
-import {useState} from 'react';
+import {useMemo,useState,type FormEvent} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '@/lib/api';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
 import {useAuth} from '@/contexts/auth-context';
+import {AuroxModalBase} from '@/components/aurox-modal-base';
 import {toast} from 'sonner';
-import {Trash2,CheckSquare,Square,Plus} from 'lucide-react';
-const GRUPOS=[{id:'vendedores',label:'Todos os vendedores'},{id:'guaribas',label:'Todos os guaribas'},{id:'mecanicos',label:'Todos os mecânicos'},{id:'documentistas',label:'Todos os documentistas'}];
+import {Plus,Check,Clock3,ClipboardList,Search,Trash2,ChevronRight,MessageSquareText,UserRound} from 'lucide-react';
+
+type Tarefa={id:number;titulo:string;descricao?:string|null;observacao?:string|null;resposta?:string|null;destinatario_id?:number;destinatario_nome?:string;criado_por_id?:number;criado_por_nome?:string;criador_nome?:string;respondida_at?:string|null;created_at?:string};
+type Dest={id:number;nome:string;tipo:string};
+const grupos=[['vendedores','Todos os vendedores'],['guaribas','Todos os guaribas'],['mecanicos','Todos os mecânicos'],['documentistas','Todos os documentistas']];
+const complete=(t:Tarefa)=>/^(concluid|feita|feito|sim|finaliz|realiz)/i.test(String(t.resposta||''));
+function dia(raw?:string|null){if(!raw)return 'Não registrado';const d=new Date(raw);return isNaN(d.getTime())?'Não registrado':d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});}
 export default function TarefasPage(){
- const {user}=useAuth();const qc=useQueryClient();
- const pode=['admin','gerente','marketing','superadmin'].includes(user?.tipo||'');
- const [titulo,setTitulo]=useState('');const[dest,setDest]=useState('');const[selecionados,setSelecionados]=useState<number[]>([]);
- const [selecionando,setSelecionando]=useState(false);const [busy,setBusy]=useState(false);
- const {data:tarefas=[],isLoading,error}=useQuery({queryKey:['tarefas'],queryFn:async()=>(await api.get('/tarefas')).data,refetchInterval:15000});
- const {data:equipe=[]}=useQuery({queryKey:['equipe-users'],queryFn:async()=>(await api.get('/usuarios')).data,enabled:pode});
- const rows=Array.isArray(tarefas)?tarefas:[];
- function toggle(id:number){setSelecionados(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);}
- async function criar(){if(!titulo.trim()||!dest)return toast.error('Informe título e destinatário');setBusy(true);
-  try{await api.post('/tarefas',{titulo:titulo.trim(),...(dest.startsWith('grupo:')?{destinatario_tipo:dest.slice(6)}:{destinatario_id:Number(dest)})});
-   setTitulo('');toast.success('Tarefa criada');await qc.invalidateQueries({queryKey:['tarefas']});
-  }catch(e:any){toast.error(e?.response?.data?.error||'Falha ao criar tarefa');}finally{setBusy(false);}}
- async function excluir(ids:number[]){if(!ids.length||!pode)return;
-  if(!confirm(`Excluir ${ids.length} tarefa(s) permanentemente?`))return;setBusy(true);
-  try{await api.delete('/tarefas',{data:{ids}});setSelecionados([]);setSelecionando(false);toast.success('Tarefa(s) excluída(s)');await qc.invalidateQueries({queryKey:['tarefas']});}
-  catch(e:any){toast.error(e?.response?.data?.error||'Erro ao excluir');}finally{setBusy(false);}}
- return <div className="mx-auto max-w-4xl space-y-4 pb-28">
-  <div className="flex flex-wrap items-center justify-between gap-2"><div><h1 className="text-3xl font-bold">Tarefas</h1><p className="text-xs text-muted-foreground">Ações disponíveis conforme sua empresa e loja</p></div>
-   {pode&&<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>{setSelecionando(!selecionando);setSelecionados([]);}}>{selecionando?'Cancelar seleção':'Selecionar tarefas'}</Button>
-   {selecionando&&<Button variant="outline" onClick={()=>setSelecionados(selecionados.length===rows.length?[]:rows.map((t:any)=>Number(t.id)))}>{selecionados.length===rows.length?'Desmarcar todas':'Selecionar todas'}</Button>}
-   {selecionados.length>0&&<Button variant="destructive" disabled={busy} onClick={()=>excluir(selecionados)}><Trash2 className="mr-2 h-4 w-4"/>Excluir ({selecionados.length})</Button>}</div>}
-  </div>
-  {pode&&<div className="rounded-xl border border-border bg-card p-4 flex gap-2 flex-wrap"><Input placeholder="Título da tarefa" value={titulo} onChange={e=>setTitulo(e.target.value)} className="min-w-[190px] flex-1" maxLength={180}/>
-   <select aria-label="Destinatário" className="rounded border border-border bg-background px-3" value={dest} onChange={e=>setDest(e.target.value)}><option value="">Quem recebe?</option>
-   {GRUPOS.map(g=><option key={g.id} value={'grupo:'+g.id}>{g.label}</option>)}
-   {(Array.isArray(equipe)?equipe:[]).map((v:any)=><option key={v.id} value={String(v.id)}>{v.nome} · {v.tipo}</option>)}</select>
-   <Button disabled={busy||!titulo.trim()||!dest} onClick={criar}><Plus className="mr-1 h-4 w-4"/>Criar</Button></div>}
-  {isLoading&&<p>Carregando...</p>}{!!error&&<p className="text-rose-400">Não foi possível carregar tarefas. Confira o banco.</p>}
-  {rows.map((t:any)=><div key={t.id} className="rounded-xl border border-border bg-card p-4 flex items-start gap-3">
-   {pode&&selecionando&&<button type="button" className="mt-1" onClick={()=>toggle(Number(t.id))} aria-label={'Selecionar '+t.titulo}>{selecionados.includes(Number(t.id))?<CheckSquare className="text-primary"/>:<Square/>}</button>}
-   <div className="min-w-0 flex-1"><div className="font-semibold break-words">{t.titulo}</div><p className="text-sm text-muted-foreground">{t.descricao||''} {t.descricao?'· ':''}Para: {t.destinatario_nome||t.destinatario_id} · {t.resposta==null?'Pendente':String(t.resposta)}</p></div>
-   {pode&&!selecionando&&<Button size="sm" variant="outline" title="Apagar tarefa" disabled={busy} onClick={()=>excluir([Number(t.id)])}><Trash2 className="h-4 w-4 text-rose-400"/></Button>}
-  </div>)}
-  {!isLoading&&!rows.length&&<p className="text-sm text-muted-foreground">Nenhuma tarefa encontrada.</p>}
- </div>;
+ const {user}=useAuth(),qc=useQueryClient();const cargo=String(user?.tipo||'').toLowerCase();
+ const podeCriar=['admin','gerente','superadmin'].includes(cargo);
+ const [novo,setNovo]=useState(false),[detalhe,setDetalhe]=useState<Tarefa|null>(null),[busy,setBusy]=useState(false);
+ const [search,setSearch]=useState(''),[filtro,setFiltro]=useState('todas'),[titulo,setTitulo]=useState(''),[descricao,setDescricao]=useState(''),[dest,setDest]=useState('');
+ const [nota,setNota]=useState(''),[finalizada,setFinalizada]=useState(false),[tituloEdit,setTituloEdit]=useState(''),[descricaoEdit,setDescricaoEdit]=useState('');
+ const consulta=useQuery<Tarefa[]>({queryKey:['tarefas'],queryFn:async()=>{const {data}=await api.get('/tarefas');return Array.isArray(data)?data:[]},refetchInterval:20000});
+ const equipe=useQuery<Dest[]>({queryKey:['tarefas-destinatarios',user?.id],enabled:podeCriar,queryFn:async()=>{const {data}=await api.get('/usuarios');return Array.isArray(data)?data:[]}});
+ const rows=consulta.data||[],feitas=rows.filter(complete).length;
+ const lista=useMemo(()=>rows.filter(t=>(!search||[t.titulo,t.destinatario_nome,t.descricao].some(s=>String(s||'').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))))&&(filtro==='todas'||(filtro==='concluidas'?complete(t):!complete(t)))),[rows,search,filtro]);
+ const abrir=(t:Tarefa)=>{setDetalhe(t);setNota(String(t.observacao||''));setFinalizada(complete(t));setTituloEdit(t.titulo);setDescricaoEdit(String(t.descricao||''));};
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:['tarefas']});};
+ async function criar(e:FormEvent){e.preventDefault();if(!podeCriar||busy||!titulo.trim()||!dest)return;
+  setBusy(true);try{await api.post('/tarefas',{titulo:titulo.trim(),descricao:descricao.trim()||null,...(dest.startsWith('grupo:')?{destinatario_tipo:dest.slice(6)}:{destinatario_id:Number(dest)})});toast.success('Tarefa atribuída');setTitulo('');setDescricao('');setDest('');setNovo(false);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível criar a tarefa')}finally{setBusy(false)}
+ }
+ async function salvar(e:FormEvent){e.preventDefault();if(!detalhe||busy)return;setBusy(true);try{await api.patch('/tarefas',{id:detalhe.id,resposta:finalizada?'concluido':'pendente',observacao:nota.slice(0,2000),...(podeCriar?{titulo:tituloEdit.trim(),descricao:descricaoEdit.trim()}:{} )});toast.success('Atualização registrada');setDetalhe(null);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Falha ao atualizar a tarefa')}finally{setBusy(false)}}
+ async function remover(t:Tarefa){if(!podeCriar||busy||!confirm('Excluir esta tarefa?'))return;setBusy(true);try{await api.delete('/tarefas',{data:{ids:[t.id]}});toast.success('Tarefa excluída');setDetalhe(null);await refresh()}catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível excluir')}finally{setBusy(false)}}
+ return <div className="studio-operational">
+  <header className="studio-users-header"><div><span className="studio-eyebrow">Rotina e produtividade</span><h1>Tarefas</h1><p>Veja o que foi atribuído, quem concluiu e as observações registradas pela equipe.</p></div>{podeCriar&&<button className="studio-btn primary" type="button" onClick={()=>setNovo(true)}><Plus size={17}/>Adicionar tarefa</button>}</header>
+  <section className="studio-summary"><div><span className="studio-summary-icon"><ClipboardList size={19}/></span><strong>{rows.length}</strong><small>Total no seu escopo</small></div><div><span className="studio-summary-icon success"><Check size={19}/></span><strong>{feitas}</strong><small>Concluídas</small></div><div><span className="studio-summary-icon warn"><Clock3 size={19}/></span><strong>{rows.length-feitas}</strong><small>Em andamento</small></div></section>
+  <section className="studio-users-surface"><div className="studio-users-tools"><div className="studio-users-search"><Search size={16}/><input aria-label="Buscar tarefa" placeholder="Pesquisar tarefas ou responsável" value={search} onChange={e=>setSearch(e.target.value)}/></div><select aria-label="Status" value={filtro} onChange={e=>setFiltro(e.target.value)}><option value="todas">Todos os status</option><option value="pendentes">Pendentes</option><option value="concluidas">Concluídas</option></select></div>
+   {consulta.isLoading?<div className="studio-empty">Carregando tarefas…</div>:consulta.isError?<div className="studio-error">Não foi possível carregar as tarefas.</div>:!lista.length?<div className="studio-empty">Nenhuma tarefa neste filtro.</div>:<div className="studio-operational-list">{lista.map(t=><button type="button" className="studio-operational-row" key={t.id} onClick={()=>abrir(t)}><span className={'studio-operational-check '+(complete(t)?'done':'')}><Check size={15}/></span><span className="studio-operational-name"><strong>{t.titulo}</strong><small>{t.destinatario_nome||'Responsável não informado'} · {dia(t.created_at)}{t.descricao?' · '+t.descricao.slice(0,65):''}</small></span><span className={'studio-status '+(complete(t)?'ok':'off')}>{complete(t)?'Concluída':'Pendente'}</span><ChevronRight size={17}/></button>)}</div>}
+  </section>
+  {novo&&<AuroxModalBase title="Adicionar tarefa" subtitle="Defina o responsável e descreva o que precisa ser feito." onClose={()=>setNovo(false)} footer={<div className="studio-actions"><button type="button" className="studio-btn" onClick={()=>setNovo(false)}>Cancelar</button><button type="submit" form="studio-tarefa-nova" className="studio-btn primary" disabled={busy||!titulo.trim()||!dest}>Criar tarefa</button></div>}>
+   <form id="studio-tarefa-nova" onSubmit={criar} className="studio-form-stack"><label className="studio-field">Título *<input required maxLength={180} autoFocus value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ex.: Retornar contato do cliente"/></label><label className="studio-field">Responsável *<select required value={dest} onChange={e=>setDest(e.target.value)}><option value="">Selecione quem vai receber</option>{grupos.map(([id,n])=><option key={id} value={'grupo:'+id}>{n}</option>)}{(equipe.data||[]).map(x=><option key={x.id} value={String(x.id)}>{x.nome} · {x.tipo}</option>)}</select></label><label className="studio-field">Descrição<textarea rows={4} maxLength={2000} value={descricao} onChange={e=>setDescricao(e.target.value)} placeholder="Oriente o responsável sem perder informações importantes"/></label></form>
+  </AuroxModalBase>}
+  {detalhe&&<AuroxModalBase title={detalhe.titulo} subtitle={'Atribuída a '+(detalhe.destinatario_nome||'colaborador')+' · '+dia(detalhe.created_at)} onClose={()=>setDetalhe(null)} footer={<div className="studio-actions">{podeCriar&&<button type="button" className="studio-btn danger" disabled={busy} onClick={()=>void remover(detalhe)}><Trash2 size={15}/>Excluir</button>}<button type="button" className="studio-btn" onClick={()=>setDetalhe(null)}>Cancelar</button><button type="submit" form="studio-tarefa-detalhe" className="studio-btn primary" disabled={busy}>{busy?'Salvando…':'Salvar andamento'}</button></div>}>
+    <form id="studio-tarefa-detalhe" className="studio-form-stack" onSubmit={salvar}>{podeCriar?<><label className="studio-field">Título da tarefa<input required maxLength={180} value={tituloEdit} onChange={e=>setTituloEdit(e.target.value)}/></label><label className="studio-field">Descrição<textarea rows={3} maxLength={2000} value={descricaoEdit} onChange={e=>setDescricaoEdit(e.target.value)}/></label></>:<div className="studio-note"><strong>Descrição</strong><p>{detalhe.descricao||'Sem descrição cadastrada'}</p></div>}<label className="studio-field">Situação<select value={finalizada?'sim':'nao'} onChange={e=>setFinalizada(e.target.value==='sim')}><option value="nao">Em andamento</option><option value="sim">Concluída</option></select></label><label className="studio-field">Observação do colaborador<textarea rows={5} maxLength={2000} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Registre o resultado, justificativa ou próximo passo"/></label><p className="studio-tip"><MessageSquareText size={15}/>As alterações ficam registradas na tarefa existente e respeitam as permissões da API.</p></form>
+  </AuroxModalBase>}
+ </div>
 }

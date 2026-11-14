@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, query } from '@/lib/db';
 import { requireUser } from '@/lib/session';
-import { hashPassword } from '@/lib/password';
-import { podeCriarCargo, podeGerenciarUsuarios, CARGOS_CADASTRAVEIS } from '@/lib/hierarquia-usuarios';
+import { hashPassword,verifyPassword } from '@/lib/password';
+import { podeCriarCargo, podeGerenciarUsuarios, podeAdministrarConta, CARGOS_CADASTRAVEIS } from '@/lib/hierarquia-usuarios';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,8 +11,8 @@ function idValido(x:unknown){const n=Number(x);return Number.isSafeInteger(n)&&n
 
 // Nunca confia apenas no cargo do token: lê permissão e empresa atual no PostgreSQL.
 async function atorAtual(id:number){
- const {rows}=await query<{id:number;tipo:string;empresa_id:number|null;ativo:boolean}>(
- `SELECT u.id,LOWER(TRIM(u.tipo)) tipo,u.empresa_id,COALESCE(u.ativo,FALSE) ativo
+ const {rows}=await query<{id:number;tipo:string;empresa_id:number|null;loja:string|null;ativo:boolean}>(
+ `SELECT u.id,LOWER(TRIM(u.tipo)) tipo,u.empresa_id,u.loja,COALESCE(u.ativo,FALSE) ativo
  FROM public.usuarios u LEFT JOIN public.empresas e ON e.id=u.empresa_id
  WHERE u.id=$1 AND COALESCE(u.ativo,FALSE) AND COALESCE(u.status,'ativo')='ativo'
  AND COALESCE(e.ativo,TRUE)`,[id]);return rows[0]||null;
@@ -21,17 +21,19 @@ async function atorAtual(id:number){
 export async function GET(req:NextRequest){
  const session=await requireUser(req);if(!session)return NextResponse.json({error:'Não autenticado'},{status:401});
  try{
-  const actor=await atorAtual(session.id);if(!actor||!podeGerenciarUsuarios(actor.tipo))return DENY();
+  const actor=await atorAtual(session.id);if(!actor||!(podeGerenciarUsuarios(actor.tipo)||actor.tipo==='gerente')||actor.tipo==='gerente'&&!actor.loja)return DENY();
   const superUser=actor.tipo==='superadmin';
   const requested=idValido(req.nextUrl.searchParams.get('empresa_id'));
   const empresaId=superUser?requested:idValido(actor.empresa_id);
   const empresas=superUser?(await query<{id:number;nome:string}>(`SELECT id,nome FROM public.empresas WHERE COALESCE(ativo,TRUE) ORDER BY nome`)).rows:
    (await query<{id:number;nome:string}>(`SELECT id,nome FROM public.empresas WHERE id=$1 AND COALESCE(ativo,TRUE)`,[empresaId])).rows;
   const lojas=empresaId?(await query(`SELECT codigo,nome FROM public.lojas WHERE empresa_id=$1 AND COALESCE(ativo,TRUE) ORDER BY codigo`,[empresaId])).rows:[];
-  const inferiores=CARGOS_CADASTRAVEIS.filter(tipo=>podeCriarCargo(actor.tipo,tipo));
-  const usuarios=empresaId?(await query(`SELECT u.id,u.nome,u.login,u.tipo,u.loja,u.empresa_id,u.vendedor_id,COALESCE(u.ativo,TRUE) AS ativo
-   FROM public.usuarios u WHERE u.empresa_id=$1 AND ($2::boolean OR u.id=$3 OR LOWER(u.tipo)=ANY($4::text[])) ORDER BY u.id DESC LIMIT 300`,
-   [empresaId,superUser,actor.id,inferiores])).rows:[];
+  const inferiores=CARGOS_CADASTRAVEIS.filter(tipo=>podeAdministrarConta(actor.tipo,tipo));
+  const usuarios=empresaId?(await query(`SELECT u.id,u.nome,u.login,u.tipo,u.loja,u.empresa_id,u.vendedor_id,u.foto_url,
+     u.email,u.telefone,u.cpf,COALESCE(u.ativo,TRUE) AS ativo
+   FROM public.usuarios u WHERE u.empresa_id=$1 AND ($2::boolean OR u.id=$3 OR LOWER(u.tipo)=ANY($4::text[]))
+     AND ($5::boolean OR UPPER(COALESCE(u.loja,''))=UPPER($6)) ORDER BY u.id DESC LIMIT 300`,
+   [empresaId,superUser,actor.id,inferiores,actor.tipo!=='gerente',actor.loja||''])).rows:[];
   return NextResponse.json({empresas,lojas,usuarios,nivel:actor.tipo,empresa_id:empresaId},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('gestao usuarios GET',e);return NextResponse.json({error:'Falha ao consultar usuários. Verifique o banco.'},{status:500});}
 }
@@ -83,11 +85,15 @@ export async function PATCH(req:NextRequest){
  const client=await getPool().connect();
  try{
   await client.query('BEGIN');
-  const a=await client.query(`SELECT id,LOWER(TRIM(tipo)) tipo,empresa_id FROM public.usuarios WHERE id=$1 AND COALESCE(ativo,FALSE) AND COALESCE(status,'ativo')='ativo' FOR SHARE`,[session.id]);
-  const t=await client.query(`SELECT id,LOWER(TRIM(tipo)) tipo,empresa_id,vendedor_id FROM public.usuarios WHERE id=$1 FOR UPDATE`,[targetId]);
+  const a=await client.query(`SELECT id,LOWER(TRIM(tipo)) tipo,empresa_id,loja,senha_hash FROM public.usuarios WHERE id=$1 AND COALESCE(ativo,FALSE) AND COALESCE(status,'ativo')='ativo' FOR SHARE`,[session.id]);
+  const t=await client.query(`SELECT id,LOWER(TRIM(tipo)) tipo,empresa_id,loja,vendedor_id FROM public.usuarios WHERE id=$1 FOR UPDATE`,[targetId]);
   const actor=a.rows[0],alvo=t.rows[0];
-  if(!actor||!alvo||!podeCriarCargo(actor.tipo,alvo.tipo)||Number(actor.id)===targetId ||
-    (actor.tipo!=='superadmin'&&Number(actor.empresa_id)!==Number(alvo.empresa_id))){await client.query('ROLLBACK');return DENY();}
+  if(!actor||!alvo||!podeAdministrarConta(actor.tipo,alvo.tipo)||Number(actor.id)===targetId ||
+    (actor.tipo!=='superadmin'&&Number(actor.empresa_id)!==Number(alvo.empresa_id))||
+    (actor.tipo==='gerente'&&String(actor.loja||'').toUpperCase()!==String(alvo.loja||'').toUpperCase())){
+    await client.query('ROLLBACK');return DENY();}
+  if(!verifyPassword(String(body?.senha_atual||''),actor.senha_hash)){
+    await client.query('ROLLBACK');return NextResponse.json({error:'Confirme a senha atual do gestor'},{status:403});}
   await client.query(`UPDATE public.usuarios SET ativo=$1 WHERE id=$2`,[body.ativo,targetId]);
   if(alvo.vendedor_id)await client.query(`UPDATE public.vendedores SET ativo=$1 WHERE id=$2 AND empresa_id=$3`,[body.ativo,alvo.vendedor_id,alvo.empresa_id]);
   await client.query('COMMIT');return NextResponse.json({ok:true});

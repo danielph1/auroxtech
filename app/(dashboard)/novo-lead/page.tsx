@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { AuroxModalBase } from '@/components/aurox-modal-base';
 
 export default function NovoLeadPage() {
   const router = useRouter();
@@ -72,12 +73,10 @@ export default function NovoLeadPage() {
   }
 
   return (
-    <div className="aurox-workspace max-w-5xl space-y-6">
-      <header>
-        <p className="aurox-eyebrow">Central comercial / Cadastro</p><h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Novo lead</h1><p className="mt-2 text-sm text-muted-foreground">Vincule o contato à empresa e ao vendedor responsável antes de salvar.</p>
-      </header>
-      <Card>
-        <CardContent className="p-6">
+    <div className="studio-lead-form-shell">
+      <AuroxModalBase wide title="Cadastrar lead" subtitle="Preencha os dados necessários. Os campos da ficha permanecem disponíveis ao gerar crédito." onClose={()=>router.push('/inicio')}>
+      <Card className="studio-lead-form-card">
+        <CardContent className="studio-lead-form-content">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
@@ -187,6 +186,7 @@ export default function NovoLeadPage() {
           </form>
         </CardContent>
       </Card>
+      </AuroxModalBase>
     </div>
   );
 }

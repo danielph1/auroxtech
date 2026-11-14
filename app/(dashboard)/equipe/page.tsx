@@ -10,7 +10,7 @@ const n=(v:unknown)=>Number(v||0).toLocaleString('pt-BR');
 function Stat({label,value}:{label:string;value:unknown}){return <div className="nova-profile-stat"><small>{label}</small><strong>{n(value)}</strong></div>}
 export default function EquipePage(){
  const {user}=useAuth();const qc=useQueryClient();const role=String(user?.tipo||'').toLowerCase();
- const manager=role==='gerente',authorized=['gerente','admin','superadmin'].includes(role);const canManage=['admin','superadmin'].includes(role);
+ const manager=role==='gerente',authorized=['gerente','admin','superadmin'].includes(role);const canManage=['gerente','admin','superadmin'].includes(role);
  const [loja,setLoja]=useState(manager?String(user?.loja||''):'');const [search,setSearch]=useState('');
  const [empresa,setEmpresa]=useState('');const superadmin=role==='superadmin';
  const empresas=useQuery({queryKey:['equipe-empresas',user?.id],enabled:superadmin,queryFn:async()=>{const r=await api.get('/faturamento/empresas');return Array.isArray(r.data)?r.data as {id:number;nome:string}[]:[];}});
@@ -47,7 +47,7 @@ export default function EquipePage(){
      <div className="nova-surface p-4 mt-4"><h4 className="font-bold text-sm mb-2">Movimentações</h4><p className="nova-text-muted text-xs">Hoje: +{n(pessoa.plus_hoje)} recebidos · −{n(pessoa.minus_hoje)} perdidos</p><p className="nova-text-muted text-xs mt-2">No mês: +{n(pessoa.plus_mes)} / −{n(pessoa.minus_mes)} transferências</p><p className="nova-text-muted text-xs mt-2">Pontuação: {Number(pessoa.pontos||0).toFixed(1)}</p></div>
     </div></div>
    <div className="flex flex-wrap gap-2 mt-5 justify-end">{pessoa.ativo===false&&Number(pessoa.leads_em_aberto)>0&&<button type="button" className="nova-button ghost" disabled={busy===pessoa.id} onClick={()=>void redistribuir(pessoa)}><ArrowRightLeft size={15}/>{busy===pessoa.id?'Redistribuindo…':`Redistribuir ${n(pessoa.leads_em_aberto)} leads`}</button>}
-    {canManage&&<Link href={contaSelecionada ? `/gestao-usuarios?usuario=${contaSelecionada.id}&editar=1${superadmin ? `&empresa_id=${empresaId}` : ''}` : '/gestao-usuarios'} className="nova-button ghost"><ShieldCheck size={15}/>Gerenciar acesso/desligamento <ArrowRight size={14}/></Link>}
+    {canManage&&<Link href={contaSelecionada ? `/gestao-usuarios?usuario=${contaSelecionada.id}&editar=1${superadmin ? `&empresa_id=${empresaId}` : ''}` : '/gestao-usuarios'} className="nova-button ghost"><ShieldCheck size={15}/>Editar dados e acesso <ArrowRight size={14}/></Link>}
     <button className="nova-button" onClick={()=>setPessoa(null)}>Concluir</button></div>
    </section></div>}
  </div>;

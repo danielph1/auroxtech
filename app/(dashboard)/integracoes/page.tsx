@@ -186,13 +186,13 @@ export default function IntegracoesPage() {
 
   const metaHook = typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/meta` : "/api/webhooks/meta";
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-28">
-      <div>
-        <h1 className="text-2xl font-bold">Conectar canais</h1>
+    <div className="studio-integrations studio-operational">
+      <div className="studio-users-header"><div><span className="studio-eyebrow">Canais e conexões</span>
+        <h1>Integrações</h1>
         <p className="text-sm text-muted-foreground">
           Cada empresa conecta seus próprios canais. Autorização oficial onde disponível; Aurox-WhatsApp por QR Code com sessão independente. Credenciais nunca ficam no navegador.
         </p>
-      </div>
+      </div></div>
 
       {(isSuper || empresas.length > 1) && (
         <label className="block text-sm">
@@ -209,14 +209,14 @@ export default function IntegracoesPage() {
         </label>
       )}
 
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground text-sm">Modelo (igual AutoCerto)</p>
+      <div className="studio-integration-guide">
+        <p className="font-medium text-foreground text-sm">Como funcionam as conexões</p>
           <p>1. Concessionária faz login no provedor quando houver OAuth; outros canais exigem ativacao de integrador.</p>
         <p>2. Aurox vincula ao <code>empresa_id</code> e gera webhook de entrada.</p>
         <p>3. Anúncio gera interesse → lead na triagem desta loja.</p>
       </div>
 
-      <div className="grid gap-3">
+      <div className="studio-integration-grid">
         {/* Meta OAuth */}
         <button
           type="button"

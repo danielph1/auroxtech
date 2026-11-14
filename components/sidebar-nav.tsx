@@ -10,7 +10,7 @@ const C=['vendedor','gerente','admin','superadmin','marketing'];
 const G=['gerente','admin','superadmin'];const M=['gerente','marketing','admin','superadmin'];
 const CR=[...C,'elfenai','elfen_ai','elfenaí'];
 const D=['superadmin','admin','gerente','vendedor','documentista','documento'];
-const F=[...C,'documentista','documento'];const AD=['superadmin','admin','marketing'];
+const F=[...C,'documentista','documento'];const AD=['superadmin','admin','gerente','marketing'];
 const S=[
  {id:'principal',title:'Principal',links:[{href:'/inicio',label:'Visão geral',icon:Home},{href:'/agenda',label:'Agenda',icon:CalendarDays}]},
  {id:'leads',title:'Atendimento',links:[{href:'/triagem',label:'Triagem',icon:Inbox,roles:M},{href:'/painel',label:'Painel de leads',icon:LayoutDashboard,roles:C},

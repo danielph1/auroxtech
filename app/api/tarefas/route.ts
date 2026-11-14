@@ -4,6 +4,7 @@ import { requireUser, type SessionUser } from '@/lib/session';
 import { notificar } from '@/lib/notify';
 export const runtime='nodejs';
 const GERENCIA=new Set(['admin','gerente','marketing','superadmin']);
+const CRIADORES=new Set(['admin','gerente','superadmin']);
 const gestor=(u:SessionUser)=>GERENCIA.has(String(u.tipo).toLowerCase());
 function filtro(u:SessionUser, params:unknown[], tabela='t') {
  const parts:string[]=[];
@@ -34,7 +35,7 @@ export async function GET(req:NextRequest){
 }
 export async function POST(req:NextRequest){
  const u=await requireUser(req);if(!u)return NextResponse.json({error:'Não autenticado'},{status:401});
- if(!gestor(u))return NextResponse.json({error:'Sem permissão'},{status:403});
+ if(!CRIADORES.has(String(u.tipo).toLowerCase()))return NextResponse.json({error:'Sem permissão'},{status:403});
  try {const b=await req.json();const titulo=String(b.titulo||'').trim();if(!titulo||titulo.length>180)return NextResponse.json({error:'Título obrigatório (máximo 180 caracteres)'},{status:400});
   const desc=String(b.descricao||'').slice(0,2000)||null;
   const params:unknown[]=[];
@@ -64,14 +65,22 @@ export async function POST(req:NextRequest){
 export async function PATCH(req:NextRequest){
  const u=await requireUser(req);if(!u)return NextResponse.json({error:'Não autenticado'},{status:401});
  try{const b=await req.json();const id=Number(b.id);if(!Number.isSafeInteger(id))return NextResponse.json({error:'ID inválido'},{status:400});
-  const params:unknown[]=[b.resposta??null,b.observacao??null,id];const where=filtro(u,params);
-  const row=await queryOne(`UPDATE public.tarefas t SET resposta=COALESCE($1,resposta), observacao=COALESCE($2,observacao),respondida_at=CASE WHEN $1 IS NOT NULL THEN NOW() ELSE respondida_at END,updated_at=NOW() WHERE t.id=$3 AND (${where}) RETURNING *`,params);
+   const editFields=b.titulo!==undefined||b.descricao!==undefined;
+   if(editFields&&!CRIADORES.has(String(u.tipo).toLowerCase()))return NextResponse.json({error:'Sem permissão para editar tarefa'},{status:403});
+   const newTitle=b.titulo!==undefined?String(b.titulo||'').trim():null;
+   const newDesc=b.descricao!==undefined?String(b.descricao||'').slice(0,2000):null;
+   if(newTitle!==null&&(newTitle.length<1||newTitle.length>180))return NextResponse.json({error:'Título inválido'},{status:400});
+   const params:unknown[]=[b.resposta??null,b.observacao!==undefined?String(b.observacao||'').slice(0,2000):null,id,newTitle,newDesc];const where=filtro(u,params);
+   const row=await queryOne(`UPDATE public.tarefas t SET resposta=COALESCE($1,resposta), observacao=COALESCE($2,observacao),
+     titulo=COALESCE($4,titulo),descricao=COALESCE($5,descricao),
+     respondida_at=CASE WHEN $1 IS NOT NULL THEN NOW() ELSE respondida_at END,updated_at=NOW()
+     WHERE t.id=$3 AND (${where}) RETURNING *`,params);
   if(!row)return NextResponse.json({error:'Tarefa inexistente ou sem permissão'},{status:403});return NextResponse.json(row);
  }catch(e:any){return NextResponse.json({error:e?.message||'Falha ao atualizar'},{status:500});}
 }
 export async function DELETE(req:NextRequest){
  const u=await requireUser(req);if(!u)return NextResponse.json({error:'Não autenticado'},{status:401});
- if(!gestor(u))return NextResponse.json({error:'Sem permissão para excluir tarefas'},{status:403});
+ if(!CRIADORES.has(String(u.tipo).toLowerCase()))return NextResponse.json({error:'Sem permissão para excluir tarefas'},{status:403});
  try{
   const b=await req.json();const ids=[...new Set((Array.isArray(b.ids)?b.ids:[b.id]).map(Number))].filter(x=>Number.isSafeInteger(x)&&x>0);
   if(!ids.length||ids.length>100)return NextResponse.json({error:'Selecione de 1 a 100 tarefas'},{status:400});

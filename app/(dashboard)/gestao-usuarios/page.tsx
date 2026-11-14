@@ -21,9 +21,11 @@ export default function GestaoUsuarios(){
  const [empresa,setEmpresa]=useState(''),[empresas,setEmpresas]=useState<Empresa[]>([]),[lojas,setLojas]=useState<Loja[]>([]),[users,setUsers]=useState<Usuario[]>([]);
  const [loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[consultaErro,setConsultaErro]=useState('');
  const [busca,setBusca]=useState(''),[filtroCargo,setFiltroCargo]=useState(''),[filtroLoja,setFiltroLoja]=useState(''),[filtroStatus,setFiltroStatus]=useState('');
- const [novo,setNovo]=useState(false),[selecionado,setSelecionado]=useState<Usuario|null>(null),[editarEmail,setEditarEmail]=useState(false),[confirmar,setConfirmar]=useState(false);
+ const [novo,setNovo]=useState(false),[selecionado,setSelecionado]=useState<Usuario|null>(null),[editarEmail,setEditarEmail]=useState(false),[confirmar,setConfirmar]=useState(false),[editarPerfil,setEditarPerfil]=useState(false);
  const [nome,setNome]=useState(''),[login,setLogin]=useState(''),[senha,setSenha]=useState(''),[verSenha,setVerSenha]=useState(false),[cargo,setCargo]=useState('vendedor'),[loja,setLoja]=useState('');
  const [novoEmail,setNovoEmail]=useState(''),[senhaAtor,setSenhaAtor]=useState('');
+ const [perfilForm,setPerfilForm]=useState({nome:'',login:'',email:'',telefone:'',cpf:'',senha_atual:''});
+ const iniciarEdicao=(u:Usuario)=>{setPerfilForm({nome:u.nome||'',login:u.login||'',email:u.email||'',telefone:u.telefone||'',cpf:u.cpf||'',senha_atual:''});setEditarEmail(false);setEditarPerfil(true);};
  const opcoes=useMemo(()=>TODOS.filter(([r])=>podeCriarCargo(papel,r)),[papel]);
  const carregar=useCallback(async()=>{
   setLoading(true);setConsultaErro('');
@@ -35,12 +37,12 @@ export default function GestaoUsuarios(){
   }catch(e:any){setConsultaErro(errorMessage(e,'Falha ao consultar usuários.'));}
   finally{setLoading(false);}
  },[empresa]);
- useEffect(()=>{if(!isLoading&&podeGerenciarUsuarios(papel))void carregar();},[carregar,isLoading,papel]);
+ useEffect(()=>{if(!isLoading&&(podeGerenciarUsuarios(papel)||papel==='gerente'))void carregar();},[carregar,isLoading,papel]);
  useEffect(()=>{if(opcoes.length&&!opcoes.some(x=>x[0]===cargo))setCargo(opcoes[0][0]);},[opcoes,cargo]);
  useEffect(()=>{const url=new URL(window.location.href);if(url.searchParams.get('novo')==='1'){setNovo(true);url.searchParams.delete('novo');window.history.replaceState(null,'',url.pathname+url.search);}},[]);
  useEffect(()=>{if(isLoading||!superadmin)return;const value=Number(new URL(window.location.href).searchParams.get('empresa_id'));if(Number.isSafeInteger(value)&&value>0)setEmpresa(String(value));},[isLoading,superadmin]);
  useEffect(()=>{const url=new URL(window.location.href),id=Number(url.searchParams.get('usuario'));
-  if(id>0&&users.length){const found=users.find(v=>v.id===id);if(found){setSelecionado(found);url.searchParams.delete('usuario');url.searchParams.delete('editar');window.history.replaceState(null,'',url.pathname+url.search);}}
+  if(id>0&&users.length){const found=users.find(v=>v.id===id);if(found){setSelecionado(found);if(url.searchParams.get('editar')==='1')iniciarEdicao(found);url.searchParams.delete('usuario');url.searchParams.delete('editar');window.history.replaceState(null,'',url.pathname+url.search);}}
  },[users]);
  const lista=useMemo(()=>users.filter(u=>{
   const q=busca.trim().toLowerCase();return (!q||[u.nome,u.login,u.tipo,u.loja].some(x=>String(x||'').toLowerCase().includes(q)))&&(!filtroCargo||u.tipo===filtroCargo)&&(!filtroLoja||u.loja===filtroLoja)&&(!filtroStatus||(filtroStatus==='ativo'?u.ativo:!u.ativo));
@@ -64,11 +66,19 @@ export default function GestaoUsuarios(){
    // Revalidação da identidade na interface. A API de PATCH ainda NÃO exige essa prova no servidor.
    const {data}=await api.post('/auth/login',{login:user?.login,senha:senhaAtor});
    if(Number(data?.user?.id)!==Number(user?.id))throw Error('A confirmação não corresponde à sua conta.');
-   await api.patch('/gestao-usuarios',{id:selecionado.id,ativo:!selecionado.ativo});
+   await api.patch('/gestao-usuarios',{id:selecionado.id,ativo:!selecionado.ativo,senha_atual:senhaAtor});
    toast.success(selecionado.ativo?'Acesso desativado. Histórico e leads preservados.':'Acesso reativado.');
    setSelecionado(null);setConfirmar(false);setSenhaAtor('');await carregar();
   }catch(err:any){toast.error(errorMessage(err,err instanceof Error?err.message:'Senha inválida ou operação não autorizada.'));}
   finally{setBusy(false);}
+ }
+ async function salvarPerfil(e:FormEvent){e.preventDefault();if(!selecionado||!autorizado(selecionado)||busy)return;
+  if(!perfilForm.senha_atual.trim())return toast.error('Confirme sua senha atual.');
+  setBusy(true);try{
+   const {data}=await api.patch('/gestao-usuarios/perfil',{id:selecionado.id,...perfilForm});
+   const novo=data?.usuario||{};
+   setSelecionado({...selecionado,...novo});setEditarPerfil(false);toast.success('Perfil atualizado.');await carregar();
+  }catch(e:any){toast.error(errorMessage(e,'Não foi possível atualizar o perfil.'));}finally{setBusy(false)}
  }
  async function recuperarSenha(){if(!selecionado||!autorizado(selecionado))return;
   if(!selecionado.email)return toast.error('Cadastre o e-mail de recuperação antes.');
@@ -77,7 +87,7 @@ export default function GestaoUsuarios(){
   catch(e:any){toast.error(errorMessage(e,'Serviço de recuperação indisponível.'));}finally{setBusy(false);}
  }
  if(isLoading)return <div className="studio-empty">Carregando sessão…</div>;
- if(!podeGerenciarUsuarios(papel))return <div className="studio-empty">Seu cargo não possui autorização para administrar contas.</div>;
+ if(!(podeGerenciarUsuarios(papel)||papel==='gerente'))return <div className="studio-empty">Seu cargo não possui autorização para administrar contas.</div>;
  return <div className="studio-users-page">
   <header className="studio-users-header"><div><span className="studio-eyebrow">Pessoas e acessos</span><h1>Usuários</h1><p>Cadastre, localize e acompanhe os acessos da sua empresa com as permissões atuais.</p></div>
    <button type="button" className="studio-btn primary" onClick={()=>setNovo(true)} disabled={!opcoes.length}><Plus size={17}/>Adicionar usuário</button></header>
@@ -107,7 +117,7 @@ export default function GestaoUsuarios(){
      <label className="studio-field">Senha inicial *<div className="studio-password"><input required minLength={8} maxLength={150} autoComplete="new-password" type={verSenha?'text':'password'} value={senha} placeholder="Mínimo de 8 caracteres" onChange={e=>setSenha(e.target.value)}/><button type="button" onClick={()=>setVerSenha(v=>!v)} aria-label="Exibir senha">{verSenha?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label>
     </form><p className="studio-tip">CPF, telefone e e-mail são concluídos pelas ferramentas de perfil já existentes; a API atual não os aceita neste cadastro.</p>
    </AuroxModalBase>}
-  {selecionado&&!confirmar&&<AuroxModalBase wide title={selecionado.nome} eyebrow="Perfil e acesso" subtitle={`Loja ${selecionado.loja||'—'} · ${lbl(selecionado.tipo)}`} onClose={()=>{setSelecionado(null);setEditarEmail(false);}}
+  {selecionado&&!confirmar&&!editarPerfil&&<AuroxModalBase wide title={selecionado.nome} eyebrow="Perfil e acesso" subtitle={`Loja ${selecionado.loja||'—'} · ${lbl(selecionado.tipo)}`} onClose={()=>{setSelecionado(null);setEditarEmail(false);}}
    footer={<div className="studio-actions"><button className="studio-btn" onClick={()=>setSelecionado(null)}>Voltar à lista</button>{autorizado(selecionado)&&<button className={'studio-btn '+(selecionado.ativo?'danger':'')} onClick={()=>{setConfirmar(true);setSenhaAtor('')}}><Power size={16}/>{selecionado.ativo?'Desativar acesso':'Reativar acesso'}</button>}</div>}>
    <div className="studio-profile-grid"><aside className="studio-profile-identity"><span className="studio-avatar huge">{selecionado.nome?.[0]?.toUpperCase()}</span><h3>{selecionado.nome}</h3><small>@{selecionado.login}</small><i className={'studio-status '+(selecionado.ativo?'ok':'off')}>{selecionado.ativo?'Ativo':'Inativo'}</i><span className="studio-tip text-center">{lbl(selecionado.tipo)} · Loja {selecionado.loja}</span></aside>
     <div className="studio-profile-data"><h3>Informações do colaborador</h3><div className="studio-info-grid"><div className="studio-info"><small>Nome</small><strong>{selecionado.nome}</strong></div><div className="studio-info"><small>Usuário / login</small><strong>{selecionado.login}</strong></div>
@@ -116,13 +126,23 @@ export default function GestaoUsuarios(){
       <div className="studio-info"><small>Telefone</small><strong>{selecionado.telefone||'Não disponível na consulta'}</strong></div>
       <div className="studio-info"><small>CPF</small><strong>{selecionado.cpf||'Não disponível na consulta'}</strong></div>
       <div className="studio-info"><small>Empresa</small><strong>{empresas.find(c=>Number(c.id)===Number(selecionado.empresa_id))?.nome||'Empresa vinculada'}</strong></div></div>
-      <h3 className="studio-spaced-heading">Gerenciar conta</h3><div className="studio-actions"><button type="button" className="studio-btn" disabled={!autorizado(selecionado)} onClick={()=>{setNovoEmail(selecionado.email||'');setEditarEmail(true)}}><Mail size={16}/>Alterar e-mail</button>
+      <h3 className="studio-spaced-heading">Gerenciar conta</h3><div className="studio-actions">{autorizado(selecionado)&&<button type="button" className="studio-btn primary" onClick={()=>iniciarEdicao(selecionado)}>Editar dados</button>}<button type="button" className="studio-btn" disabled={!autorizado(selecionado)} onClick={()=>{setNovoEmail(selecionado.email||'');setEditarEmail(true)}}><Mail size={16}/>Alterar e-mail</button>
         <button type="button" className="studio-btn" disabled={!autorizado(selecionado)||!selecionado.ativo} onClick={()=>void recuperarSenha()}><KeyRound size={16}/>Recuperar senha</button>
         <Link className="studio-btn" href="/minha-conta"><UserRound size={16}/>Meu perfil</Link></div>
-      <p className="studio-tip">Para editar nome, login, CPF ou telefone de outra pessoa com segurança, ainda é necessário um endpoint administrativo específico. Os campos aparecem como consulta, sem inventar dados.</p>
+      <p className="studio-tip">A edição de dados exige senha do gestor e respeita empresa, loja e hierarquia.</p>
     </div></div>
    </AuroxModalBase>}
-  {selecionado&&editarEmail&&!confirmar&&<AuroxModalBase title="Alterar e-mail" eyebrow={selecionado.nome} onClose={()=>setEditarEmail(false)} footer={<div className="studio-actions"><button className="studio-btn" onClick={()=>setEditarEmail(false)}>Cancelar</button><button className="studio-btn primary" type="submit" form="studio-email" disabled={busy}>Salvar e-mail</button></div>}>
+  {selecionado&&editarPerfil&&<AuroxModalBase title="Editar colaborador" subtitle={selecionado.nome} onClose={()=>setEditarPerfil(false)} footer={<div className="studio-actions"><button type="button" className="studio-btn" onClick={()=>setEditarPerfil(false)}>Cancelar</button><button type="submit" form="studio-editar-perfil" className="studio-btn primary" disabled={busy||!perfilForm.senha_atual}>Salvar alterações</button></div>}>
+    <form id="studio-editar-perfil" onSubmit={salvarPerfil} className="studio-form-grid">
+     <label className="studio-field">Nome completo *<input required maxLength={140} value={perfilForm.nome} onChange={e=>setPerfilForm(p=>({...p,nome:e.target.value}))}/></label>
+     <label className="studio-field">Usuário / login *<input required maxLength={80} value={perfilForm.login} onChange={e=>setPerfilForm(p=>({...p,login:e.target.value}))}/></label>
+     <label className="studio-field">E-mail<input type="email" value={perfilForm.email} onChange={e=>setPerfilForm(p=>({...p,email:e.target.value}))}/></label>
+     <label className="studio-field">Telefone<input type="tel" maxLength={35} value={perfilForm.telefone} onChange={e=>setPerfilForm(p=>({...p,telefone:e.target.value}))}/></label>
+     <label className="studio-field">CPF<input inputMode="numeric" maxLength={14} value={perfilForm.cpf} onChange={e=>setPerfilForm(p=>({...p,cpf:e.target.value}))}/></label>
+     <label className="studio-field">Senha atual do gestor *<input type="password" autoComplete="current-password" required value={perfilForm.senha_atual} onChange={e=>setPerfilForm(p=>({...p,senha_atual:e.target.value}))}/></label>
+    </form><p className="studio-tip">Cargo, empresa e loja permanecem vinculados às permissões atuais. Para redefinir a senha do colaborador, utilize recuperação de senha.</p>
+   </AuroxModalBase>}
+  {selecionado&&editarEmail&&!confirmar&&!editarPerfil&&<AuroxModalBase title="Alterar e-mail" eyebrow={selecionado.nome} onClose={()=>setEditarEmail(false)} footer={<div className="studio-actions"><button className="studio-btn" onClick={()=>setEditarEmail(false)}>Cancelar</button><button className="studio-btn primary" type="submit" form="studio-email" disabled={busy}>Salvar e-mail</button></div>}>
    <form id="studio-email" onSubmit={salvarEmail}><label className="studio-field">E-mail de recuperação<input type="email" autoFocus required value={novoEmail} placeholder="colaborador@empresa.com" onChange={e=>setNovoEmail(e.target.value)}/></label></form>
   </AuroxModalBase>}
   {selecionado&&confirmar&&<AuroxModalBase title={selecionado.ativo?'Desativar acesso':'Reativar acesso'} eyebrow="Confirmação" subtitle={`Conta: ${selecionado.nome}`} onClose={()=>{setConfirmar(false);setSenhaAtor('')}} footer={<div className="studio-actions"><button className="studio-btn" onClick={()=>{setConfirmar(false);setSenhaAtor('')}}>Cancelar</button><button className={'studio-btn '+(selecionado.ativo?'danger':'primary')} disabled={!senhaAtor||busy} type="submit" form="studio-identity">{busy?'Verificando…':selecionado.ativo?'Confirmar desativação':'Confirmar reativação'}</button></div>}>
