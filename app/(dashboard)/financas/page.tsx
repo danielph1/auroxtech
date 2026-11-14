@@ -550,32 +550,6 @@ function LinhaResumoPromessa({p,onReceber}:{p:Promessa;onReceber:(p:Promessa)=>v
  </div>;
 }
 
-/** Resumo discreto: uma ocorrência por compromisso, mesmo se houver dezenas de parcelas. */
-function LinhaResumoConta({p,agenda,atrasadas=0,onReceber}:{p:Parcela;agenda?:Agenda;
- atrasadas?:number;onReceber:(p:Parcela)=>void}){
- const vencida=dataApenas(p.vencimento)<diaAtual();
- const recorrencia=agenda?.frequencia==='mensal'?(agenda.repeticoes==null?'Mensal · até cancelar':`Mensal · ${agenda.repeticoes} vezes`):'Pagamento único';
- const saldo=p.valor==null?null:Math.max(0,Number(p.valor)-Number(p.desconto||0)-Number(p.recebido||0));
- return <div className="border-b border-border/60 py-3 last:border-0">
-  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.descricao}</p>
-   <p className="mt-1 text-[11px] text-muted-foreground">{p.tipo==='entrada'?'A receber':'A pagar'} · {recorrencia}</p></div>
-   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':p.tipo==='entrada'?'text-emerald-500':'text-foreground'}`}>{reais(saldo)}</strong></div>
-  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}
-   {atrasadas>1&&` · ${atrasadas} competências atrasadas`}</span>
-   {saldo!=null&&saldo>0&&<button type="button" className="shrink-0 font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button>}</div>
- </div>;
-}
-function LinhaResumoPromessa({p,onReceber}:{p:Promessa;onReceber:(p:Promessa)=>void}){
- const saldo=Math.max(0,Number(p.valor)-Number(p.recebido));const vencida=dataApenas(p.vencimento)<diaAtual();
- return <div className="border-b border-border/60 py-3 last:border-0">
-  <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.cliente||`Venda #${p.lead_id}`}</p>
-   <p className="mt-1 text-[11px] text-muted-foreground">A receber · {nomesComponente[p.componente]}</p></div>
-   <strong className={`shrink-0 text-sm ${vencida?'text-rose-500':'text-emerald-500'}`}>{reais(saldo)}</strong></div>
-  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{vencida?'Vencida em':'Vence em'} {mostrarData(p.vencimento)}</span>
-   <button type="button" className="font-semibold text-primary hover:underline" onClick={()=>onReceber(p)}>Dar baixa</button></div>
- </div>;
-}
-
 function LinhaParcela({p,pagamentos,onReceber,onEstornar,onVencimento,superadmin}:{p:Parcela;pagamentos:PagamentoParcela[];
  onReceber:(p:Parcela)=>void;onEstornar:(p:Parcela,pagamento:PagamentoParcela)=>Promise<void>;
  onVencimento:(p:Parcela)=>Promise<void>;superadmin:boolean}){
