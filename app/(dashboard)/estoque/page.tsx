@@ -25,6 +25,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { AuroxModalBase } from '@/components/aurox-modal-base';
+import { EstoqueCompartilhado } from '@/components/estoque-compartilhado'; // AUROX_ESTOQUE_PARCEIROS_V1
 import { useI18n } from '@/contexts/i18n-context';
 
 type Ordem = 'preco_asc' | 'preco_desc' | 'chegada_desc' | 'chegada_asc' | 'marca';
@@ -138,6 +139,7 @@ export default function EstoquePage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
+  const [origemFiltro, setOrigemFiltro] = useState<'todos'|'proprios'|'parceiros'>('todos');
   const [novoAberto,setNovoAberto]=useState(false);
   const [ordem, setOrdem] = useState<Ordem>('preco_asc');
   const [carroceria, setCarroceria] = useState('todas');
@@ -235,7 +237,7 @@ export default function EstoquePage() {
         <div><h1 className="text-4xl font-bold tracking-tight">{t('page.estoque.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('page.estoque.sub')}
-        </p><div className="studio-vehicle-count"><strong>{lista.length}</strong> veículo(s) neste filtro</div></div>
+        </p><div className="studio-vehicle-count"><strong>{lista.length}</strong> veículo(s) próprio(s) neste filtro</div></div>
         {canEdit&&<button type="button" className="studio-btn primary" onClick={()=>setNovoAberto(true)}>+ Adicionar veículo</button>}
       </header>
 
@@ -299,10 +301,22 @@ export default function EstoquePage() {
           <option value="chegada_asc">Ordenar: mais antigo</option>
           <option value="marca">Ordenar: marca A–Z</option>
         </select>
+        <select className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          aria-label="Filtrar veículos por origem" value={origemFiltro}
+          onChange={(e) => setOrigemFiltro(e.target.value as 'todos'|'proprios'|'parceiros')}>
+          <option value="todos">Origem: todos</option>
+          <option value="proprios">Somente próprios</option>
+          <option value="parceiros">Somente parceiros</option>
+        </select>
       </div>
 
-      {isLoading && <CarLoader compact />}
+      {origemFiltro !== 'parceiros' && isLoading && <CarLoader compact />}
 
+      {origemFiltro !== 'parceiros' && <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Estoque próprio</h2>
+          <span className="text-xs text-muted-foreground">Seus veículos, sob gestão da sua empresa</span>
+        </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {lista.map((c) => (
           <Card
@@ -364,7 +378,9 @@ export default function EstoquePage() {
           </Card>
         ))}
       </div>
-      {!isLoading && lista.length === 0 && (
+      </section>}
+      {origemFiltro !== 'proprios' && <EstoqueCompartilhado busca={q} carroceria={carroceria} ordem={ordem} />}
+      {!isLoading && origemFiltro !== 'parceiros' && lista.length === 0 && (
         <p className="py-8 text-center text-muted-foreground">{t('page.estoque.empty')}</p>
       )}
 
