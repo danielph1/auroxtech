@@ -1,0 +1,118 @@
+/* AUROX 2026 / Login v2: proporções editoriais, responsividade e tema por preferência.
+   Escopo exclusivamente nesta página, sem alterar as regras globais dos temas. */
+.aurox-login-v2{--ax-ink:#f6f3fa;--ax-secondary:#b4b1c3;--ax-line:rgba(255,255,255,.11);--ax-panel:#0a0d15;--ax-story:#10111b;--ax-purple:#b99bd9;--ax-field:#151923;--ax-cta:#b69adb;--ax-cta-ink:#1c1526;}
+.aurox-login-v2 .aurox-login-layout{max-width:none;grid-template-columns:minmax(0,56fr) minmax(420px,44fr)}
+.aurox-login-v2 .aurox-login-story{background:radial-gradient(circle at 25% 12%,rgba(111,88,164,.12),transparent 47%),linear-gradient(162deg,#171521,#10111b 52%,#0a0d16);border-color:var(--ax-line)}
+.aurox-login-v2 .aurox-story-inner{max-width:750px;padding-left:clamp(32px,5.8vw,104px);padding-right:clamp(32px,5.8vw,104px)}
+.aurox-login-v2 .aurox-story-first{min-height:610px;max-height:none;padding:clamp(28px,4vh,46px) 0 28px;gap:16px}
+.aurox-login-v2 .aurox-story-brand-logo{width:42px;height:42px;border-radius:13px}
+.aurox-login-v2 .aurox-brand-words{display:flex;flex-direction:column;gap:3px}
+.aurox-login-v2 .aurox-story-brand-name{font-size:20px;font-weight:760;letter-spacing:-.04em;line-height:1.1}
+.aurox-login-v2 .aurox-story-brand-sub{font-size:9px;letter-spacing:.17em;margin:0;line-height:1.2}
+.aurox-login-v2 .aurox-story-hero{margin:auto 0;max-width:570px}
+.aurox-login-v2 .aurox-story-label{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:.13em;font-weight:750;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-hero-marker{width:22px;height:2px;border-radius:3px;background:var(--ax-purple)}
+.aurox-login-v2 .aurox-story-hero h1{font-size:clamp(40px,3.85vw,67px);line-height:1.085;letter-spacing:-.055em;margin:22px 0 18px;font-weight:680}
+.aurox-login-v2 .aurox-story-hero h1 em{font-style:normal;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-story-hero p{max-width:465px;font-size:14px;line-height:1.75;color:var(--ax-secondary)}
+.aurox-login-v2 .aurox-story-pillar-row{gap:8px;margin-top:30px;padding-top:18px}
+.aurox-login-v2 .aurox-story-pillar-row div{flex-direction:row;gap:9px;align-items:center;font-size:11px}
+.aurox-login-v2 .aurox-story-pillar-row svg{flex:none;width:17px;height:17px;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-journey-preview{margin-top:27px;border:1px solid var(--ax-line);padding:16px 18px;border-radius:15px;background:rgba(255,255,255,.028)}
+.aurox-login-v2 .aurox-journey-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:13px;border-bottom:1px solid var(--ax-line)}
+.aurox-login-v2 .aurox-journey-heading span{font-size:9px;letter-spacing:.13em;font-weight:800;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-journey-heading small{font-size:10px;color:var(--ax-secondary)}
+.aurox-login-v2 .aurox-journey-track{display:flex;align-items:center;gap:8px;padding-top:15px;justify-content:space-between}
+.aurox-login-v2 .aurox-journey-track span{min-width:0;display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap;color:var(--ax-ink)}
+.aurox-login-v2 .aurox-journey-track b{font-size:10px;font-weight:700;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-journey-track i{height:1px;flex:1;min-width:4px;background:var(--ax-line)}
+.aurox-login-v2 .aurox-story-scroll-hint{font-size:10px;color:var(--ax-secondary);margin-top:14px}
+.aurox-login-v2 .aurox-login-panel{position:sticky;top:0;height:100dvh;min-height:0;padding:32px clamp(36px,5.2vw,92px);overflow-y:auto;display:flex;background:radial-gradient(circle at 88% 94%,rgba(129,100,174,.08),transparent 48%),var(--ax-panel);border-left:1px solid var(--ax-line)}
+.aurox-login-v2 .aurox-login-toolbar{position:absolute;top:26px;left:clamp(36px,5.2vw,92px);right:clamp(36px,5.2vw,92px);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.aurox-login-v2 .aurox-login-toolbar-label{font-size:10px;letter-spacing:.025em;font-weight:650;color:var(--ax-secondary)}
+.aurox-login-v2 .aurox-login-toolbar-label span{margin:0 6px;color:var(--ax-purple)}
+.aurox-login-v2 .aurox-login-theme-switch{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border:1px solid var(--ax-line);border-radius:999px;color:var(--ax-ink);font-size:11px;background:rgba(255,255,255,.035);min-height:36px;cursor:pointer;transition:background .15s,border-color .15s}
+.aurox-login-v2 .aurox-login-theme-switch:hover{background:rgba(158,136,199,.10);border-color:rgba(175,152,219,.4)}
+.aurox-login-v2 .aurox-login-theme-switch:focus-visible,.aurox-login-v2 button:focus-visible,.aurox-login-v2 a:focus-visible{outline:2px solid var(--ax-purple);outline-offset:3px}
+.aurox-login-v2 .aurox-login-form-wrap{width:min(100%,415px);max-width:415px;margin:auto}
+.aurox-login-v2 .aurox-login-shield{margin:0 0 21px;width:41px;height:41px;border-radius:12px;color:var(--ax-purple);background:rgba(164,128,222,.13)}
+.aurox-login-v2 .aurox-login-form-eyebrow{font-size:9px;letter-spacing:.17em;font-weight:780;color:var(--ax-purple);margin-bottom:13px}
+.aurox-login-v2 .aurox-login-panel h2{font-size:clamp(29px,2.6vw,36px);line-height:1.14;margin:0;color:var(--ax-ink)}
+.aurox-login-v2 .aurox-login-subtitle{color:var(--ax-secondary);margin-top:10px!important}
+.aurox-login-v2 .aurox-login-form{margin-top:28px;gap:16px}
+.aurox-login-v2 .aurox-login-field label{color:var(--ax-ink)}
+.aurox-login-v2 .aurox-login-field input{height:48px;background:var(--ax-field);color:var(--ax-ink);border-color:var(--ax-line)}
+.aurox-login-v2 .aurox-login-field input::placeholder{color:var(--ax-secondary);opacity:.6}
+.aurox-login-v2 .aurox-login-submit{height:48px;margin-top:6px;background:var(--ax-cta);color:var(--ax-cta-ink)}
+.aurox-login-v2 .aurox-login-access-note{color:var(--ax-secondary)}
+.aurox-login-v2 .aurox-login-legal{margin-top:38px;border-color:var(--ax-line)}
+.aurox-login-v2 .aurox-login-legal a{color:var(--ax-secondary)}
+.aurox-login-v2 .aurox-login-panel-foot{position:absolute;bottom:24px;left:clamp(36px,5.2vw,92px);font-size:9px;letter-spacing:.12em;color:var(--ax-secondary);opacity:.58}
+/* Light respects the existing Aurox violet identity, but avoids the all-black login. */
+.aurox-login-v2.is-light{--ax-ink:#1d1e31;--ax-secondary:#626b83;--ax-line:rgba(52,52,87,.12);--ax-panel:#fff;--ax-story:#f6f4fb;--ax-purple:#6f59b9;--ax-field:#f7f8fc;--ax-cta:#6756c7;--ax-cta-ink:#fff;background:#f6f4fb;color:#1d1e31}
+.aurox-login-v2.is-light .aurox-login-story{background:radial-gradient(circle at 18% 8%,rgba(171,154,230,.20),transparent 55%),linear-gradient(150deg,#f7f4fc,#f2f3fa 70%)}
+.aurox-login-v2.is-light .aurox-login-panel{background:radial-gradient(circle at 89% 90%,rgba(185,162,225,.09),transparent 48%),#fff}
+.aurox-login-v2.is-light .aurox-story-brand-sub,.aurox-login-v2.is-light .aurox-story-index,.aurox-login-v2.is-light .aurox-story-head p,.aurox-login-v2.is-light .aurox-story-scroll-hint,.aurox-login-v2.is-light .aurox-story-footer{color:#667087}
+.aurox-login-v2.is-light .aurox-story-hero h1,.aurox-login-v2.is-light .aurox-story-head h2,.aurox-login-v2.is-light .aurox-story-brand-name{color:#222138}
+.aurox-login-v2.is-light .aurox-story-pillar-row div,.aurox-login-v2.is-light .aurox-micro-title strong,.aurox-login-v2.is-light .aurox-funnel-step strong,.aurox-login-v2.is-light .aurox-stock-line strong,.aurox-login-v2.is-light .aurox-result-cards strong{color:#292b40}
+.aurox-login-v2.is-light .aurox-journey-preview,.aurox-login-v2.is-light .aurox-micro-card{background:rgba(255,255,255,.72);border-color:var(--ax-line);box-shadow:0 12px 35px rgba(48,35,88,.045)}
+.aurox-login-v2.is-light .aurox-micro-note,.aurox-login-v2.is-light .aurox-result-cards>div{background:#f1f0f8;color:#596177;border-color:var(--ax-line)}
+.aurox-login-v2.is-light .aurox-stock-symbol{background:#f3f1fa;color:#6252a9}
+.aurox-login-v2.is-light .aurox-micro-title span:not(.aurox-demo-tag),.aurox-login-v2.is-light .aurox-stock-line small,.aurox-login-v2.is-light .aurox-micro-note,.aurox-login-v2.is-light .aurox-funnel-step small,.aurox-login-v2.is-light .aurox-stock-footer,.aurox-login-v2.is-light .aurox-result-cards span,.aurox-login-v2.is-light .aurox-result-cards small,.aurox-login-v2.is-light .aurox-results-footer{color:#647087}
+.aurox-login-v2.is-light .aurox-demo-tag{color:#657089;border-color:var(--ax-line)}
+.aurox-login-v2.is-light .aurox-login-field input:focus{border-color:#7762c0;box-shadow:0 0 0 3px rgba(115,98,190,.13)}
+.aurox-login-v2.is-light .aurox-login-submit:hover:not(:disabled){background:#5744b5;color:white}
+.aurox-login-v2.is-light .aurox-login-theme-switch{background:#f8f7fc}
+.aurox-login-v2.is-light .aurox-login-password button{color:#69748a}
+.aurox-login-v2.is-light .aurox-login-password button:hover{background:#ecebf4;color:#393354}
+/* A 1.024px desktop still splits, with an independent scroll container on each side. */
+@media(min-width:1024px) and (max-width:1230px){
+ .aurox-login-v2 .aurox-login-layout{grid-template-columns:minmax(0,52fr) minmax(390px,48fr)}
+ .aurox-login-v2 .aurox-story-inner{padding-left:clamp(26px,3.4vw,50px);padding-right:clamp(26px,3.4vw,50px)}
+ .aurox-login-v2 .aurox-login-panel{padding-inline:36px}
+ .aurox-login-v2 .aurox-login-toolbar{left:36px;right:36px}
+ .aurox-login-v2 .aurox-login-panel-foot{left:36px}
+ .aurox-login-v2 .aurox-story-hero h1{font-size:clamp(38px,4vw,53px)}
+ .aurox-login-v2 .aurox-journey-track{gap:4px}
+ .aurox-login-v2 .aurox-journey-track span{font-size:10px;gap:4px}
+}
+/* Laptop short heights: no controls may be clipped. Pane scrolls without scrolling the story. */
+@media(min-width:1024px) and (max-height:730px){
+ .aurox-login-v2 .aurox-login-panel{justify-content:flex-start}
+ .aurox-login-v2 .aurox-login-form-wrap{margin:90px auto 75px}
+ .aurox-login-v2 .aurox-story-first{height:auto;min-height:730px}
+}
+@media(max-width:1023px){
+ .aurox-login-v2{height:auto;min-height:100svh;overflow:visible}
+ .aurox-login-v2 .aurox-login-layout{max-width:none;display:flex;flex-direction:column;min-height:100svh;height:auto}
+ .aurox-login-v2 .aurox-login-panel{position:relative;order:0;min-height:auto;height:auto;overflow:visible;border-left:0;border-bottom:1px solid var(--ax-line);padding:27px clamp(24px,6vw,54px) 38px}
+ .aurox-login-v2 .aurox-login-toolbar{position:relative;top:auto;left:auto;right:auto;margin:0 0 38px}
+ .aurox-login-v2 .aurox-login-form-wrap{width:min(100%,455px);max-width:455px}
+ .aurox-login-v2 .aurox-login-panel-foot{display:none}
+ .aurox-login-v2 .aurox-login-story{height:auto;overflow:visible;order:1;border-right:0}
+ .aurox-login-v2 .aurox-story-inner{max-width:750px;padding-inline:clamp(24px,6vw,54px)}
+ .aurox-login-v2 .aurox-story-first{min-height:0;height:auto;padding:39px 0 45px}
+ .aurox-login-v2 .aurox-story-hero{margin:35px 0 16px}
+ .aurox-login-v2 .aurox-story-hero h1{font-size:clamp(37px,6vw,54px)}
+ .aurox-login-v2 .aurox-journey-preview{margin-top:25px}
+ .aurox-login-v2 .aurox-story-scroll-hint{display:none}
+}
+@media(max-width:520px){
+ .aurox-login-v2 .aurox-login-panel{padding:20px 21px 32px}
+ .aurox-login-v2 .aurox-login-toolbar{margin-bottom:29px}
+ .aurox-login-v2 .aurox-login-toolbar-label{font-size:9px}
+ .aurox-login-v2 .aurox-login-form-eyebrow{font-size:9px}
+ .aurox-login-v2 .aurox-login-panel h2{font-size:clamp(27px,8vw,34px)}
+ .aurox-login-v2 .aurox-login-form{margin-top:24px}
+ .aurox-login-v2 .aurox-login-legal{margin-top:30px;padding-top:18px}
+ .aurox-login-v2 .aurox-story-inner{padding-inline:21px}
+ .aurox-login-v2 .aurox-story-hero h1{font-size:clamp(34px,10vw,45px)}
+ .aurox-login-v2 .aurox-story-hero p{font-size:13px}
+ .aurox-login-v2 .aurox-story-pillar-row{gap:6px}
+ .aurox-login-v2 .aurox-story-pillar-row div{flex-wrap:wrap;gap:6px;font-size:10px}
+ .aurox-login-v2 .aurox-journey-preview{padding:13px}
+ .aurox-login-v2 .aurox-journey-track{flex-wrap:wrap;justify-content:flex-start;gap:8px}
+ .aurox-login-v2 .aurox-journey-track i{width:7px;flex:0 0 7px}
+ .aurox-login-v2 .aurox-journey-heading{align-items:flex-start;flex-direction:column;gap:4px}
+}
+@media(prefers-reduced-motion:reduce){.aurox-login-v2 *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
