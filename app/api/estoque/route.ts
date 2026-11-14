@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, getPool } from '@/lib/db';
+import { prepararVeiculo } from '@/lib/aurox-veiculo-cadastro';
 import { requireUser } from '@/lib/session';
 import { isSuperAdmin } from '@/lib/tenant';
 import { variantesBusca } from '@/lib/fuzzy';
@@ -88,37 +89,43 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Cadastro manual do veiculo - papéis de gestao, isolado por empresa. */
+/** AUROX_VEICULO_FICHA_PRECOS_V1: preserva todos os campos opcionais e preço/observação por portal. */
 export async function POST(req: NextRequest) {
-  const u = await requireUser(req);
-  if (!u) return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 });
-  const canAdd = ['superadmin', 'admin', 'gerente', 'marketing'].includes(String(u.tipo).toLowerCase());
-  if (!canAdd) return NextResponse.json({ error: 'Sem permissao' }, { status: 403 });
-  const b = await req.json().catch(() => null);
-  if (!b || typeof b !== 'object') return NextResponse.json({ error: 'JSON invalido' }, { status: 400 });
-  const marca = String(b.marca || '').trim().slice(0, 90);
-  const modelo = String(b.modelo || '').trim().slice(0, 120);
-  const placa = String(b.placa || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
-  const ano = Number(b.ano);
-  const preco = Number(b.preco ?? 0);
-  const empresaId = u.tipo === 'superadmin' ? Number(b.empresa_id) : Number(u.empresa_id);
-  if (!empresaId || !Number.isSafeInteger(empresaId)) return NextResponse.json({ error: 'Empresa obrigatoria' }, { status: 400 });
-  if (!marca || !modelo || !/^[A-Z0-9]{7}$/.test(placa) || !Number.isInteger(ano) || ano < 1900 || ano > new Date().getFullYear() + 2 || !Number.isFinite(preco) || preco < 0) {
-    return NextResponse.json({ error: 'Preencha marca, modelo, ano, placa valida e preco' }, { status: 400 });
-  }
-  const patio = u.tipo === 'gerente' ? String(u.loja || '') : String(b.patio || u.loja || '').slice(0, 100);
-  try {
-    const existing = await query(`SELECT id FROM public.estoque_carros
-      WHERE empresa_id=$1 AND REPLACE(REPLACE(UPPER(COALESCE(placa,'')),'-',''),' ','')=$2 LIMIT 1`, [empresaId, placa]);
-    if (existing.rows.length) return NextResponse.json({ error: 'Placa ja cadastrada na empresa' }, { status: 409 });
-    const row = await query(`INSERT INTO public.estoque_carros
-      (empresa_id, marca, carro, modelo, placa, ano, cor, preco, patio, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Disponível') RETURNING id`,
-      [empresaId, marca, `${marca} ${modelo}`, modelo, placa, ano,
-        String(b.cor || '').slice(0, 60), preco, patio]);
-    return NextResponse.json({ ok: true, id: row.rows[0]?.id }, { status: 201 });
-  } catch (e) {
-    console.error('estoque POST', e instanceof Error ? e.message : 'erro');
-    return NextResponse.json({ error: 'Nao foi possivel cadastrar o veiculo' }, { status: 500 });
-  }
+  const user=await requireUser(req);
+  if(!user)return NextResponse.json({error:'Não autenticado'},{status:401});
+  const role=String(user.tipo||'').toLowerCase();
+  if(!['superadmin','admin','gerente','marketing'].includes(role))return NextResponse.json({error:'Sem permissão'},{status:403});
+  const b=await req.json().catch(()=>null);
+  if(!b||typeof b!=='object'||Array.isArray(b))return NextResponse.json({error:'Dados inválidos'},{status:400});
+  let v:ReturnType<typeof prepararVeiculo>;
+  try{v=prepararVeiculo(b);}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Cadastro inválido'},{status:400});}
+  const empresaId=role==='superadmin'?Number(b.empresa_id):Number(user.empresa_id);
+  if(!Number.isSafeInteger(empresaId)||empresaId<1)return NextResponse.json({error:'Empresa obrigatória'},{status:400});
+  const patio=role==='gerente'?String(user.loja||'').trim().toUpperCase():String(b.patio||user.loja||'').trim().toUpperCase();
+  if(!patio)return NextResponse.json({error:'Selecione a loja do veículo'},{status:400});
+  const client=await getPool().connect();
+  try{
+    await client.query('BEGIN');
+    const empresa=await client.query('SELECT id FROM public.empresas WHERE id=$1 AND COALESCE(ativo,TRUE)',[empresaId]);
+    const loja=await client.query('SELECT id FROM public.lojas WHERE empresa_id=$1 AND UPPER(codigo)=$2 AND COALESCE(ativo,TRUE)',[empresaId,patio]);
+    if(!empresa.rowCount||!loja.rowCount){await client.query('ROLLBACK');return NextResponse.json({error:'Empresa/loja inexistente ou não autorizada'},{status:403});}
+    if(v.placa){
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`aurox-estoque:${empresaId}:${v.placa}`]);
+      const dup=await client.query(`SELECT id FROM public.estoque_carros WHERE empresa_id=$1
+        AND REGEXP_REPLACE(UPPER(COALESCE(placa,'')),'[^A-Z0-9]','','g')=$2 LIMIT 1`,[empresaId,v.placa]);
+      if(dup.rowCount){await client.query('ROLLBACK');return NextResponse.json({error:'Placa já cadastrada nesta empresa'},{status:409});}
+    }
+    const result=await client.query(`INSERT INTO public.estoque_carros
+      (empresa_id,marca,modelo,carro,placa,ano,cor,preco,patio,status,km,carroceria,aurox_detalhes)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'Disponível',$10,$11,$12::jsonb) RETURNING id`,
+      [empresaId,v.marca,v.modelo,`${v.marca} ${v.modelo}`,v.placa,v.ano,v.cor,v.preco,patio,
+       v.detalhes.km??null,v.detalhes.carroceria||null,JSON.stringify(v.detalhes)]);
+    await client.query('COMMIT');
+    return NextResponse.json({ok:true,id:result.rows[0].id},{status:201,headers:{'Cache-Control':'no-store'}});
+  }catch(e:any){
+    await client.query('ROLLBACK').catch(()=>{});
+    console.error('[estoque cadastro completo]',e?.code||'erro');
+    const migracao=['42703','23502'].includes(String(e?.code||''));
+    return NextResponse.json({error:migracao?'Cadastro completo indisponível: confira a migração 202611080003_veiculos_detalhes.sql. Nenhum veículo foi criado.':'Não foi possível cadastrar veículo. Confira os dados e a estrutura do estoque.'},{status:503});
+  }finally{client.release();}
 }

@@ -279,7 +279,8 @@ export default function AnunciosPage() {
         estoque_id: sel.id,
         plataformas: plats,
         descricao,
-        preco: edit.preco || undefined,
+        // AUROX_VEICULO_FICHA_PRECOS_V1: preço editado já foi salvo no estoque;
+        // não sobrescrever configurações específicas dos portais.
         titulo: titulo || undefined,
         telefone_whatsapp: whatsappContato,
         cidade_ml_id: cidadeMlId,

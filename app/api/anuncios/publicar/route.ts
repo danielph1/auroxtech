@@ -185,7 +185,11 @@ export async function POST(req: NextRequest) {
 
   const faltando: string[] = [];
   if (!car.marca && !car.modelo && !car.carro) faltando.push('marca/modelo');
-  const precoNum = Number(body.preco ?? car.preco);
+  // AUROX_VEICULO_FICHA_PRECOS_V1: valores por portal nunca sobrescrevem preço base.
+  const detalhes = car.aurox_detalhes && typeof car.aurox_detalhes==='object' && !Array.isArray(car.aurox_detalhes) ? car.aurox_detalhes : {};
+  const porPortal = detalhes.portais_detalhes && typeof detalhes.portais_detalhes==='object' ? detalhes.portais_detalhes : {};
+  const precoBaseClassificados = detalhes.usar_preco_site===false && Number(detalhes.preco_classificados)>0 ? Number(detalhes.preco_classificados) : Number(car.preco);
+  const precoNum = Number(body.preco ?? precoBaseClassificados);
   if (!precoNum || precoNum <= 0) faltando.push('preço');
   if (faltando.length) {
     return NextResponse.json(
@@ -221,6 +225,14 @@ export async function POST(req: NextRequest) {
 
   for (const p of plataformas) {
     try {
+      const portal = p==='ml'?'mercadolivre':p;
+      const override = porPortal[portal] || {};
+      const precoPortal = body.preco!==undefined && String(body.preco).trim()!==''
+        ? Number(body.preco) : Number(override.preco)>0 ? Number(override.preco) : precoNum;
+      const descricaoPortal = (body.descricao||'').trim() || String(override.observacao||'').trim()
+        || (detalhes.usar_observacao_classificados===false ? String(detalhes.observacao_classificados||'').trim() : '')
+        || String(detalhes.observacoes||'').trim() || descricao;
+      if(!Number.isFinite(precoPortal)||precoPortal<=0)throw Error('Preço do portal inválido.');
       if (p === 'mercadolivre' || p === 'ml') {
         let mlToken: string;
         try {
@@ -245,7 +257,7 @@ export async function POST(req: NextRequest) {
             [empresaId],
           );
         } catch { /* instalação antiga: publicação continua possível com os campos enviados */ }
-        const item = await publicarMercadoLivre(mlToken, car, descricao, titulo, precoNum,
+        const item = await publicarMercadoLivre(mlToken, car, descricaoPortal, titulo, precoPortal,
           String(body.telefone_whatsapp || pref?.telefone_whatsapp || ''),
           String(body.cidade_ml_id || pref?.cidade_ml_id || ''),
           String(body.categoria_ml_id || ''), body.atributos_ml || {});
@@ -289,7 +301,7 @@ export async function POST(req: NextRequest) {
             estoqueId,
             car.placa,
             p,
-            JSON.stringify({ titulo, descricao, preco: precoNum }),
+            JSON.stringify({ titulo, descricao:descricaoPortal, preco:precoPortal }),
             u.id,
           ],
         );
@@ -321,10 +333,9 @@ export async function POST(req: NextRequest) {
       `UPDATE public.estoque_carros SET
          anunciado = true,
          anunciado_em = now(),
-         anuncios_meta = $2::jsonb,
-         preco = COALESCE($3::numeric, preco)
+         anuncios_meta = $2::jsonb
        WHERE id=$1`,
-      [estoqueId, JSON.stringify(meta), precoNum || null],
+      [estoqueId, JSON.stringify(meta)],
     );
   } else if (Object.keys(resultados).length || erros.length) {
     // guarda tentativa sem marcar como no ar

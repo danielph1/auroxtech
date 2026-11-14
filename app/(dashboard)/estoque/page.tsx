@@ -1,5 +1,6 @@
 'use client';
 import { nomeVeiculo } from '@/lib/nome-veiculo';
+import { VehicleFullDetails } from '@/components/vehicle-full-details';
 import { CarLoader } from '@/components/car-loader';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,20 +37,13 @@ function limpo(v: any) {
 }
 
 function tituloVeiculo(c: any) {
-  const marca = limpo(c.marca);
-  const carro = limpo(c.carro);
-  const modelo = limpo(c.modelo);
-  const parts: string[] = [];
-  if (marca !== '—') parts.push(marca);
-  if (carro !== '—' && carro.toUpperCase() !== marca.toUpperCase()) parts.push(carro);
-  if (
-    modelo !== '—' &&
-    modelo.toUpperCase() !== carro.toUpperCase() &&
-    modelo.toUpperCase() !== marca.toUpperCase()
-  ) {
-    parts.push(modelo);
-  }
-  return parts.length ? parts.join(' ') : '—';
+  const marca=limpo(c.marca),modelo=limpo(c.modelo),carro=limpo(c.carro);
+  if(marca==='—')return modelo!=='—'?modelo:carro;
+  const m=modelo!=='—'?modelo:carro;
+  if(m==='—')return marca;
+  // Corrige duplicação do tipo "Volkswagen Volkswagen Polo Polo".
+  if(m.toLocaleLowerCase('pt-BR').startsWith(marca.toLocaleLowerCase('pt-BR')+' '))return m;
+  return `${marca} ${m}`;
 }
 
 function podeEditarFotos(tipo?: string) {
@@ -149,6 +143,7 @@ export default function EstoquePage() {
   const [carroceria, setCarroceria] = useState('todas');
   const [sel, setSel] = useState<any | null>(null);
   const [fotoIdx, setFotoIdx] = useState(0);
+  const [mostrarFichaCompleta, setMostrarFichaCompleta] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [novoCarro, setNovoCarro] = useState({ marca: '', modelo: '', ano: '', placa: '', preco: '', cor: '', patio: '', empresa_id: '' });
 
@@ -379,7 +374,7 @@ export default function EstoquePage() {
           onClick={() => setSel(null)}
         >
           <div
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-border bg-background p-5 shadow-xl sm:rounded-2xl"
+            className="max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-border bg-background p-5 shadow-xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -460,7 +455,12 @@ export default function EstoquePage() {
               </div>
             </div>
 
-            <Button variant="outline" className="mt-4 w-full" onClick={() => setSel(null)}>
+            {/* AUROX_VEICULO_FICHA_PRECOS_V1: ficha completa sem esconder campos salvos no banco. */}
+            <Button type="button" variant="secondary" className="mt-5 w-full" onClick={()=>setMostrarFichaCompleta(v=>!v)} aria-expanded={mostrarFichaCompleta}>
+              {mostrarFichaCompleta?'Ocultar ficha completa':'Ver dados completos'}
+            </Button>
+            {mostrarFichaCompleta&&<VehicleFullDetails vehicle={sel} allowSensitive={canEdit}/>}
+            <Button variant="outline" className="mt-3 w-full" onClick={() => {setMostrarFichaCompleta(false);setSel(null)}}>
               Fechar
             </Button>
           </div>
