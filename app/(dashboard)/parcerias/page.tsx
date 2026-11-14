@@ -20,8 +20,8 @@ type Parceria = {
   criado_em: string; aprovado_em: string | null;
 };
 type Resumo = {
-  empresa_id: number; empresa_nome: string; codigo_gerado: boolean;
-  codigo_atualizado_em: string | null;
+  empresa_id: number; empresa_nome: string; codigo_gerado: boolean; codigo_ativo: boolean;
+  codigo_atualizado_em: string | null; codigo_expira_em: string | null;
   parcerias: Parceria[];
   auditoria: { id: number; parceria_id: number; acao: string; criado_em: string }[];
 };
@@ -54,6 +54,11 @@ export default function ParceriasPage() {
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [busy, setBusy] = useState('');
   const [codigoGerado, setCodigoGerado] = useState('');
+  const [instante, setInstante] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setInstante(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
   const [codigoOutro, setCodigoOutro] = useState('');
   const [enviaLeads, setEnviaLeads] = useState(false);
   const [enviaEstoque, setEnviaEstoque] = useState(true);
@@ -120,10 +125,15 @@ export default function ParceriasPage() {
     } catch (e) { toast.error(mensagemErro(e)); return null; }
     finally { setBusy(''); }
   };
+  const expiraEm = resumo?.codigo_expira_em ? new Date(resumo.codigo_expira_em).getTime() : 0;
+  const codigoAtivo = !!resumo?.codigo_ativo && Number.isFinite(expiraEm) && expiraEm > instante;
+  const restanteMs = codigoAtivo ? Math.max(0, expiraEm - instante) : 0;
+  const restante = restanteMs < 60_000 ? 'menos de 1 minuto' :
+    `${Math.floor(restanteMs / 3_600_000)}h ${String(Math.floor((restanteMs % 3_600_000) / 60_000)).padStart(2,'0')}min`;
   const criarCodigo = async () => {
-    if (resumo?.codigo_gerado && !window.confirm('Gerar um novo código invalida o anterior, mas mantém as parcerias aprovadas. Continuar?')) return;
+    if (codigoAtivo && !window.confirm('O código atual ainda está válido. Gerar outro invalida imediatamente o anterior; as solicitações já enviadas e as parcerias aprovadas permanecem. Continuar?')) return;
     const data = await executar('codigo', { acao: 'novo_codigo' });
-    if (data?.codigo) { setCodigoGerado(data.codigo); toast.success('Código novo gerado e protegido'); }
+    if (data?.codigo) { setCodigoGerado(data.codigo); setInstante(Date.now()); toast.success('Código válido por 24 horas. Copie e compartilhe agora.'); }
   };
   const solicitar = async () => {
     const res = await executar('solicitar', {
@@ -166,7 +176,7 @@ export default function ParceriasPage() {
     finally { setBusy(''); }
   };
   const copiar = async () => {
-    if (!codigoGerado) return;
+    if (!codigoAtivo || !codigoGerado) return;
     try { await navigator.clipboard.writeText(codigoGerado); toast.success('Código copiado'); }
     catch { toast.error('Copie o código manualmente'); }
   };
@@ -206,11 +216,12 @@ export default function ParceriasPage() {
 
       <div className="arx-rede-setup">
         <section className="arx-rede-card arx-rede-code">
-          <div className="arx-rede-card-title"><div className="arx-rede-icon"><KeyRound size={19}/></div><div><h2>Código de convite</h2><p>Envie este código a quem deseja solicitar acesso aos seus dados.</p></div></div>
-          {codigoGerado ? <div className="arx-rede-secret"><code>{codigoGerado}</code><button onClick={copiar} type="button" aria-label="Copiar código"><Copy size={17}/></button></div> :
-            <div className="arx-rede-hint">{resumo.codigo_gerado ? 'O código atual está protegido e não pode ser exibido novamente. Gere outro se precisar compartilhá-lo.' : 'Ainda não existe um código. Gere o primeiro para receber convites.'}</div>}
-          <button type="button" className="arx-rede-btn secondary" onClick={criarCodigo} disabled={!!busy}><RotateCcw size={16}/>{resumo.codigo_gerado ? 'Gerar novo código' : 'Gerar código de convite'}</button>
-          <p className="arx-rede-footnote"><LockKeyhole size={14}/> O código permite receber pedidos; somente sua aprovação libera os recursos solicitados.</p>
+          <div className="arx-rede-card-title"><div className="arx-rede-icon"><KeyRound size={19}/></div><div><h2>Código de convite</h2><p>Códigos temporários, válidos por 24 horas. O convite não concede acesso sem aprovação.</p></div></div>
+          {codigoAtivo && codigoGerado ? <div className="arx-rede-secret"><code>{codigoGerado}</code><button onClick={copiar} type="button" aria-label="Copiar código"><Copy size={17}/></button></div> :
+            <div className="arx-rede-hint">{codigoAtivo ? 'Existe um código válido, mas por segurança ele só aparece ao ser gerado. Gere outro para copiar um novo.' : 'Nenhum código válido no momento. Gere um convite para compartilhar.'}</div>}
+          {codigoAtivo && <p className="arx-rede-footnote" role="status">Expira em {restante} · {new Date(expiraEm).toLocaleString('pt-BR')}</p>}
+          <button type="button" className="arx-rede-btn secondary" onClick={criarCodigo} disabled={!!busy}><RotateCcw size={16}/>{codigoAtivo ? 'Substituir código atual' : 'Gerar código válido por 24h'}</button>
+          <p className="arx-rede-footnote"><LockKeyhole size={14}/> Depois de 24h o código deixa de aceitar novos pedidos. Solicitações enviadas antes do vencimento continuam pendentes até análise.</p>
         </section>
 
         <section className="arx-rede-card">

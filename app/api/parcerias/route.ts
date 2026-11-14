@@ -26,8 +26,9 @@ export async function GET(req: NextRequest) {
     const ctx = await contextoParceria(req, req.nextUrl.searchParams.get('empresa_id'));
     if (!ctx.ok) return ctx.response;
     const empresaId = ctx.empresaId;
-    const { rows: codigos } = await query<{ atualizado_em: string }>(
-      'SELECT atualizado_em FROM public.aurox_rede_codigos WHERE empresa_id=$1', [empresaId],
+    const { rows: codigos } = await query<{ atualizado_em: string; expira_em: string; ativo: boolean }>(
+      `SELECT atualizado_em, expira_em, (expira_em > now()) AS ativo
+       FROM public.aurox_rede_codigos WHERE empresa_id=$1`, [empresaId],
     );
     // Nunca exibe codigo em texto puro: guardamos somente SHA-256 no banco.
     const { rows: parcerias } = await query(
@@ -51,7 +52,9 @@ export async function GET(req: NextRequest) {
        ORDER BY a.criado_em DESC LIMIT 25`, [empresaId],
     );
     return resposta({ empresa_id: empresaId, empresa_nome: ctx.empresaNome,
-      codigo_gerado: codigos.length > 0, codigo_atualizado_em: codigos[0]?.atualizado_em ?? null,
+      codigo_gerado: codigos.length > 0, codigo_ativo: codigos[0]?.ativo === true,
+      codigo_atualizado_em: codigos[0]?.atualizado_em ?? null,
+      codigo_expira_em: codigos[0]?.expira_em ?? null,
       parcerias, auditoria });
   } catch (e) {
     console.error('[Aurox Rede GET]', e instanceof Error ? e.message : 'erro');
@@ -98,11 +101,13 @@ export async function POST(req: NextRequest) {
       await client.query('BEGIN');
       if (acao === 'novo_codigo') {
         const codigo = novoCodigoConvite();
-        await client.query(
-          `INSERT INTO public.aurox_rede_codigos(empresa_id,codigo_hash,gerado_por)
-           VALUES($1,$2,$3)
+        const { rows: novosCodigos } = await client.query<{ expira_em: string }>(
+          `INSERT INTO public.aurox_rede_codigos(empresa_id,codigo_hash,gerado_por,expira_em)
+           VALUES($1,$2,$3,now() + interval '24 hours')
            ON CONFLICT(empresa_id) DO UPDATE
-           SET codigo_hash=EXCLUDED.codigo_hash,gerado_por=EXCLUDED.gerado_por,atualizado_em=now()`,
+           SET codigo_hash=EXCLUDED.codigo_hash,gerado_por=EXCLUDED.gerado_por,
+               atualizado_em=now(),expira_em=now() + interval '24 hours'
+           RETURNING expira_em`,
           [empresaId, hashConvite(codigo), actor.id],
         );
         await client.query(
@@ -110,8 +115,8 @@ export async function POST(req: NextRequest) {
            VALUES($1,$2,'codigo_rotacionado')`, [empresaId, actor.id],
         );
         await client.query('COMMIT');
-        // Código mostrado somente nesta resposta; não fica acessível em GET.
-        return resposta({ ok: true, codigo });
+        // Código exibido somente agora; no banco fica exclusivamente o hash SHA-256.
+        return resposta({ ok: true, codigo, expira_em: novosCodigos[0].expira_em });
       }
 
       if (acao === 'solicitar') {
@@ -121,10 +126,10 @@ export async function POST(req: NextRequest) {
         const { rows: destinos } = await client.query<{ id: number }>(
           `SELECT e.id FROM public.aurox_rede_codigos c
            JOIN public.empresas e ON e.id=c.empresa_id
-           WHERE c.codigo_hash=$1 AND COALESCE(e.ativo,TRUE)=TRUE`, [hashConvite(codigo)],
+           WHERE c.codigo_hash=$1 AND c.expira_em > now() AND COALESCE(e.ativo,TRUE)=TRUE`, [hashConvite(codigo)],
         );
         const destinoId = destinos[0]?.id;
-        if (!destinoId) { await client.query('ROLLBACK'); return resposta({ error: 'Código inexistente ou desativado' }, 404); }
+        if (!destinoId) { await client.query('ROLLBACK'); return resposta({ error: 'Código inexistente, substituído ou expirado (validade de 24 horas)' }, 404); }
         if (destinoId === empresaId) { await client.query('ROLLBACK'); return resposta({ error: 'Não é possível convidar a própria empresa' }, 400); }
 
         // Limita abuso mesmo quando um administrador possui muitos códigos válidos.
@@ -162,12 +167,12 @@ export async function POST(req: NextRequest) {
         const estoque = decisao === 'aprovada' && body.estoque === true;
         const { rows } = await client.query<{ id: number }>(
           `UPDATE public.aurox_rede_parcerias
-           SET status=$3,compartilhar_leads=CASE WHEN $3='aprovada' THEN $4 ELSE compartilhar_leads END,
-            compartilhar_estoque=CASE WHEN $3='aprovada' THEN $5 ELSE compartilhar_estoque END,
-            confirmacao_lgpd=CASE WHEN $3='aprovada' THEN $7 ELSE confirmacao_lgpd END,
-            analisado_por=$6,atualizado_em=now(),
-            aprovado_em=CASE WHEN $3='aprovada' THEN now() ELSE NULL END,
-            encerrado_em=CASE WHEN $3='recusada' THEN now() ELSE NULL END
+           SET status=$3::text,compartilhar_leads=CASE WHEN $3::text='aprovada' THEN $4::boolean ELSE compartilhar_leads END,
+            compartilhar_estoque=CASE WHEN $3::text='aprovada' THEN $5::boolean ELSE compartilhar_estoque END,
+            confirmacao_lgpd=CASE WHEN $3::text='aprovada' THEN $7::boolean ELSE confirmacao_lgpd END,
+            analisado_por=$6::bigint,atualizado_em=now(),
+            aprovado_em=CASE WHEN $3::text='aprovada' THEN now() ELSE NULL END,
+            encerrado_em=CASE WHEN $3::text='recusada' THEN now() ELSE NULL END
            WHERE id=$1 AND origem_empresa_id=$2 AND status='pendente'
              AND (NOT $4::boolean OR compartilhar_leads=TRUE)
              AND (NOT $5::boolean OR compartilhar_estoque=TRUE)
