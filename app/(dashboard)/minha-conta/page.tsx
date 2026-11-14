@@ -116,22 +116,6 @@ export default function MinhaContaPage() {
         <div><Label>{t('account.profile')}</Label><Input value={dados.tipo || ''} disabled className="capitalize" /></div>
         <div><Label>{t('account.phone')}</Label><Input value={telefone} onChange={(e) => setTelefone(e.target.value)} disabled={!editLogin} /></div>
         <div><Label>{t('account.email')}</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!editLogin} /></div>
-        <div>
-          <Label>{t('account.language')}</Label>
-          <select
-            className="mt-1 flex h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            value={idioma}
-            onChange={(e) => setIdioma(e.target.value)}
-          >
-            <option value="pt">Português</option>
-            <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="de">Deutsch (Alemão)</option>
-          </select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t('account.language_hint')}
-          </p>
-        </div>
         <Button onClick={salvar} disabled={salvando}>{salvando ? t('common.saving') : t('common.save')}</Button>
       </div>
     </div>

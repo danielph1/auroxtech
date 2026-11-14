@@ -11,12 +11,14 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
+import { AuroxModalBase } from '@/components/aurox-modal-base';
 
 export default function OficinaPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const podeEditar = ['admin', 'gerente', 'marketing', 'superadmin', 'guariba', 'mecanico'].includes(user?.tipo || '');
   const [busca, setBusca] = useState('');
+  const [novoAberto,setNovoAberto]=useState(false);
   const [empresaDestino, setEmpresaDestino] = useState('');
   const [lojaDestino, setLojaDestino] = useState('');
   const {data: empresas=[]} = useQuery({queryKey:['empresas-selector-oficina'], queryFn:async()=>(await api.get('/aurox/empresas')).data,enabled:user?.tipo==='superadmin'});
@@ -46,6 +48,7 @@ export default function OficinaPage() {
         valor_carro: form.valor_carro ? Number(form.valor_carro) : null,
       });
       toast.success('Carro cadastrado na oficina');
+      setNovoAberto(false);
       setForm({ marca: '', modelo: '', ano_modelo: '', placa: '', cor: '', valor_carro: '' });
       qc.invalidateQueries({ queryKey: ['oficina'] });
     } catch (e: any) {
@@ -64,15 +67,16 @@ export default function OficinaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Oficina</h1>
-        <p className="text-sm text-muted-foreground">
-          Pronto há mais de 4 dias sai automaticamente. Placa nova entra no estoque.
-        </p>
+    <div className="studio-vehicle-page mx-auto max-w-6xl space-y-6">
+      <header className="studio-vehicle-header"><div>
+        <span className="studio-eyebrow">Operação e preparação</span>
+        <h1>Oficina</h1>
+        <p className="text-sm text-muted-foreground">Acompanhe a preparação e os custos. Prontos há mais de quatro dias seguem automaticamente o fluxo atual para o estoque.</p>
+        <p className="studio-vehicle-count mt-2"><strong>{carros.length}</strong> veículos · <strong>{carros.filter((c:any)=>!!c.pronto).length}</strong> prontos</p></div>
+        {podeEditar&&<button type="button" className="studio-btn primary" onClick={()=>setNovoAberto(true)}>+ Adicionar veículo à oficina</button>}
       </header>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="studio-vehicle-tools flex flex-wrap gap-3">
         <Input
           className="max-w-md flex-1"
           placeholder="Buscar marca, modelo, placa, carroceria..."
@@ -94,9 +98,10 @@ export default function OficinaPage() {
         </select>
       </div>
 
-      {podeEditar && (
-        <Card>
-          <CardContent className="py-4 grid gap-3 md:grid-cols-3">
+      {podeEditar && novoAberto && (
+        <AuroxModalBase wide title="Adicionar veículo à oficina" subtitle="Informe os dados necessários e vincule a empresa e a loja conforme seu acesso." onClose={()=>setNovoAberto(false)}>
+        <form className="studio-vehicle-modal-form" onSubmit={e=>{e.preventDefault();void cadastrar();}}>
+          <div className="grid gap-3 md:grid-cols-2">
             {user?.tipo === 'superadmin' && <label className="text-sm">Empresa*
               <select required className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2" value={empresaDestino} onChange={e=>{setEmpresaDestino(e.target.value);setLojaDestino('');}}>
                 <option value="">Selecione a empresa</option>
@@ -135,11 +140,9 @@ export default function OficinaPage() {
                 onChange={(e) => setForm({ ...form, valor_carro: e.target.value })}
               />
             </div>
-            <Button className="md:col-span-3" onClick={cadastrar}>
-              Cadastrar na oficina
-            </Button>
-          </CardContent>
-        </Card>
+          </div><div className="studio-modal-actions"><button type="button" className="studio-btn" onClick={()=>setNovoAberto(false)}>Cancelar</button><Button type="submit">Cadastrar na oficina</Button></div>
+        </form>
+        </AuroxModalBase>
       )}
 
       {isLoading && (
@@ -148,12 +151,12 @@ export default function OficinaPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="studio-workshop-grid">
         {(carros as any[]).map((c) => (
           <Card key={c.id}>
             <CardContent className="py-4 space-y-2">
-              <div className="font-semibold">
-                {c.pronto ? '✅' : '🔧'} {c.marca} {c.modelo} ({c.ano_modelo}) · {c.placa}
+              <div className="studio-workshop-heading"><span>{c.marca} {c.modelo} ({c.ano_modelo}) · {c.placa}</span><span className={'studio-workshop-status'+(c.pronto?' is-ready':'')}>{c.pronto?'Pronto':'Em preparação'}</span>
+              </div><div className="text-sm text-muted-foreground">
                 {c.observacao?.includes('RECAL') && (
                   <span className="ml-2 text-xs text-amber-400">RECAL</span>
                 )}

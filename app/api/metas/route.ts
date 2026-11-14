@@ -65,6 +65,10 @@ export async function GET(req: NextRequest) {
   try {
     const params: unknown[] = [];
     const scopes = [`COALESCE(m.ativo, TRUE)=TRUE`, `(${escopoMeta(u, params)})`];
+    if(isSuperAdmin(u)){
+      const empresaFiltro=Number(req.nextUrl.searchParams.get('empresa_id'));
+      if(Number.isSafeInteger(empresaFiltro)&&empresaFiltro>0){params.push(empresaFiltro);scopes.push(`m.empresa_id=$${params.length}`);}
+    }
     if (!LEITORES.has(String(u.tipo).toLowerCase())) {
       params.push(u.id); const id = `$${params.length}`;
       params.push(String(u.tipo).toLowerCase()); const role = `$${params.length}`;

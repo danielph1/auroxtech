@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import {usePathname} from 'next/navigation';
 import {useState} from 'react';
 import {useAuth} from '@/contexts/auth-context';
-import {Activity,BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2} from 'lucide-react';
+import {BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 type Item={href:string;label:string;icon:LucideIcon;roles?:string[]};
 const C=['vendedor','gerente','admin','superadmin','marketing'];
@@ -33,7 +34,7 @@ export function SidebarNav({onNavigate}:{onNavigate?:()=>void}){
  const [fold,setFold]=useState<Record<string,boolean>>({principal:true,leads:true});
  const active=(p:string)=>path===p||path.startsWith(p+'/');
  return <aside className="nova-sidebar" aria-label="Menu principal">
-  <Link href="/inicio" className="nova-brand" onClick={onNavigate}><span className="nova-brand-mark"><Activity size={22}/></span><span><strong>AUROX</strong><small>GESTÃO AUTOMOTIVA</small></span></Link>
+  <Link href="/inicio" className="nova-brand" onClick={onNavigate}><span className="nova-brand-mark"><Image src="/aurox-logo.png" alt="" width={42} height={42} priority/></span><span><strong>AUROX</strong><small>GESTÃO AUTOMOTIVA</small></span></Link>
   <div className="nova-sidebar-scroll">{S.map(section=>{const links=section.links.filter(l=>!l.roles||l.roles.includes(cargo));if(!links.length)return null;
    const open=fold[section.id]??links.some(l=>active(l.href));
    return <section key={section.id} className="nova-nav-section"><button type="button" onClick={()=>setFold(x=>({...x,[section.id]:!open}))} aria-expanded={open} className="nova-nav-section-title">{section.title}<ChevronDown size={14} className={open?'nova-chevron-open':''}/></button>

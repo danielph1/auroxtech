@@ -55,11 +55,14 @@ export default function NovoLeadPage() {
     .map((v: any) => [String(v.empresa_id), { id: String(v.empresa_id), nome: v.empresa_nome || `Empresa #${v.empresa_id}` }])).values()) as {id:string;nome:string}[];
   const vendedoresVisiveis = isSuper
     ? (vendedores as any[]).filter((v: any) => String(v.empresa_id) === empresaSelecionada)
-    : vendedores as any[];
+    : user?.tipo === 'vendedor'
+      ? (vendedores as any[]).filter((v: any) => Number(v.id) === Number(user?.vendedor_id))
+      : vendedores as any[];
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (isSuper && !empresaSelecionada) { toast.error('Selecione a empresa que receberá o lead.'); return; }
+    if (user?.tipo === 'vendedor' && (!user.vendedor_id || Number(form.vendedor_id) !== Number(user.vendedor_id))) { toast.error('O lead deve ser vinculado ao seu próprio usuário.'); return; }
     const vendedor = vendedoresVisiveis.find((v: any) => Number(v.id) === Number(form.vendedor_id));
     if (!vendedor) { toast.error('Selecione um vendedor válido da empresa selecionada.'); return; }
     setLoading(true);
@@ -109,12 +112,13 @@ export default function NovoLeadPage() {
               )}
               <div className="space-y-1.5">
                 <Label className="text-sm">Vendedor responsável*</Label>
-                <Select value={String(form.vendedor_id || '')} onValueChange={(v) => setForm({ ...form, vendedor_id: Number(v) })} disabled={isSuper && !empresaSelecionada}>
+                <Select value={String(user?.tipo==='vendedor'?user?.vendedor_id||'':form.vendedor_id||'')} onValueChange={(v) => {if(user?.tipo!=='vendedor')setForm({ ...form, vendedor_id: Number(v) });}} disabled={user?.tipo==='vendedor'||(isSuper && !empresaSelecionada)}>
                   <SelectTrigger><SelectValue placeholder={carregandoVendedores ? 'Carregando…' : 'Selecione um vendedor'} /></SelectTrigger>
                   <SelectContent>
                     {vendedoresVisiveis.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>{v.nome} · Loja {v.loja || '—'}{isSuper ? ` · ${v.empresa_nome || ''}` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {user?.tipo==='vendedor'&&<p className="text-xs text-muted-foreground">Atribuição automática ao vendedor logado. Apenas um gestor pode transferir o atendimento depois do cadastro.</p>}
                 {erroVendedores && <p className="text-sm text-destructive">Falha ao consultar vendedores. Verifique a conexão com o banco.</p>}
                 {isSuper && empresaSelecionada && !vendedoresVisiveis.length && !carregandoVendedores && <p className="text-sm text-amber-500">Esta empresa não possui vendedores ativos. Cadastre um vendedor na aba Usuários antes de criar o lead.</p>}
               </div>

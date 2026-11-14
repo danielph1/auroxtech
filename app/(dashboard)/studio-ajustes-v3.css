@@ -1,0 +1,39 @@
+/* AUROX STUDIO V3 — somente novas regras visuais, sem remover estilos legados. */
+@media(max-width:900px){
+ .nova-mobile-dock{transition:transform .22s ease,opacity .22s ease;will-change:transform,opacity}
+ .nova-mobile-dock.is-hidden{transform:translate(-50%,calc(100% + 40px));opacity:0;pointer-events:none}
+}
+.nova-brand-mark{background:none!important;box-shadow:none!important;overflow:hidden}
+.nova-brand-mark img{width:100%;height:100%;object-fit:contain}
+.settings-v3-page,.legal-v3-page{max-width:1150px;margin-inline:auto;padding:12px 0 100px}
+.settings-v3-heading,.legal-v3-page>header{margin-bottom:26px}.settings-v3-heading h1,.legal-v3-page>header h1{font-size:clamp(27px,3vw,36px);font-weight:780;letter-spacing:-.045em;margin:6px 0}
+.settings-v3-heading p,.legal-v3-page>header p{color:hsl(var(--muted-foreground));font-size:14px;max-width:720px}
+.settings-v3-columns{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.9fr);gap:23px;align-items:start}
+.settings-v3-group{margin-bottom:22px}.settings-v3-group h2{font-size:13px;font-weight:730;margin:0 0 11px;color:hsl(var(--muted-foreground))}
+.settings-v3-links{border:1px solid hsl(var(--border));background:hsl(var(--card));border-radius:19px;overflow:hidden}
+.settings-v3-link{display:flex;align-items:center;gap:13px;min-height:78px;padding:12px 18px;border-bottom:1px solid hsl(var(--border)/.75);transition:background .15s ease}
+.settings-v3-link:last-child{border-bottom:0}.settings-v3-link:hover{background:hsl(var(--muted)/.35)}
+.settings-v3-link-icon{height:39px;width:39px;flex-shrink:0;border-radius:12px;display:grid;place-items:center;background:hsl(var(--primary)/.085);color:hsl(var(--primary))}
+.settings-v3-link-info{min-width:0;display:grid;gap:3px}.settings-v3-link-info strong{font-size:13px;font-weight:730}.settings-v3-link-info small{font-size:11px;color:hsl(var(--muted-foreground))}.settings-v3-chevron{margin-left:auto;color:hsl(var(--muted-foreground));flex-shrink:0}
+.settings-v3-signout{background:hsl(var(--card));border:1px solid hsl(var(--border));padding:19px;border-radius:19px;display:grid;gap:16px}
+.settings-v3-signout strong{font-size:13px}.settings-v3-signout p{font-size:11px;margin-top:5px;color:hsl(var(--muted-foreground))}
+.settings-v3-logout{display:flex;justify-content:center;align-items:center;gap:9px;font-size:13px;font-weight:730;padding:11px 14px;border-radius:11px;color:#b72d36;background:rgba(220,38,38,.055);border:1px solid rgba(220,38,38,.14)}.settings-v3-logout:hover{background:rgba(220,38,38,.1)}
+.legal-v3-page{max-width:930px}.legal-v3-lead{background:hsl(var(--card));border:1px solid hsl(var(--border));padding:22px 25px;border-radius:18px;margin-bottom:19px}
+.legal-v3-lead h2{font-size:18px;font-weight:750;line-height:1.35;margin-bottom:10px}.legal-v3-page p{font-size:13px;color:hsl(var(--muted-foreground));line-height:1.85}.legal-v3-lead p+p{margin-top:10px}.legal-v3-page a{color:hsl(var(--primary));text-decoration:underline;text-underline-offset:3px}
+.legal-v3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-bottom:19px}.legal-v3-grid>section{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:17px;padding:19px}.legal-v3-grid svg{color:hsl(var(--primary));margin-bottom:12px}.legal-v3-grid h3{font-size:14px;font-weight:750;margin-bottom:5px}
+.legal-v3-sections{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:18px;overflow:hidden;margin-bottom:19px}.legal-v3-sections>section{display:flex;gap:16px;padding:19px 24px;border-bottom:1px solid hsl(var(--border)/.8)}.legal-v3-sections>section:last-child{border-bottom:0}.legal-v3-index{font-size:12px;font-weight:760;color:hsl(var(--primary));padding-top:2px}.legal-v3-sections h2{font-size:14px;font-weight:750;margin-bottom:5px}
+.studio-vehicle-page>.studio-vehicle-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-bottom:6px}
+.studio-vehicle-page .studio-vehicle-header h1{font-size:clamp(26px,3vw,34px);font-weight:770;letter-spacing:-.04em}
+.studio-vehicle-count{display:flex;align-items:center;gap:9px;color:hsl(var(--muted-foreground));font-size:12px}.studio-vehicle-count strong{font-weight:770;color:hsl(var(--foreground));font-size:17px}
+.studio-vehicle-tools{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:16px;padding:13px}
+.studio-vehicle-modal-form .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.studio-vehicle-modal-form label{font-size:12px;font-weight:650}
+.studio-vehicle-modal-form input,.studio-vehicle-modal-form select{margin-top:6px;min-height:42px}
+.studio-vehicle-modal-form .studio-modal-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid hsl(var(--border));padding-top:16px;margin-top:17px}
+.studio-vehicle-modal-form .studio-modal-actions a{font-size:12px;font-weight:700;color:hsl(var(--primary))}
+.studio-vehicle-modal-form .studio-modal-actions button{min-width:120px}
+.studio-workshop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.studio-workshop-grid>div{min-width:0;overflow:hidden}
+.studio-workshop-grid .studio-workshop-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:750;font-size:14px;margin-bottom:12px}
+.studio-workshop-grid .studio-workshop-status{font-size:11px;font-weight:750;padding:5px 8px;border-radius:8px;background:hsl(var(--muted)/.6);color:hsl(var(--muted-foreground));white-space:nowrap}.studio-workshop-grid .studio-workshop-status.is-ready{color:#15803d;background:rgba(22,163,74,.1)}
+@media(max-width:900px){.settings-v3-columns{grid-template-columns:minmax(0,1fr)}.studio-workshop-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.settings-v3-page,.legal-v3-page{padding:0 0 105px}.settings-v3-link{padding:12px 13px;min-height:68px}.settings-v3-link-info small{font-size:10px}.legal-v3-lead{padding:17px}.legal-v3-sections>section{padding:15px}.legal-v3-grid{grid-template-columns:1fr}.studio-vehicle-modal-form .grid{grid-template-columns:1fr}.studio-vehicle-header .studio-btn{width:100%}}

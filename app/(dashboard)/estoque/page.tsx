@@ -22,6 +22,8 @@ import { CARROCERIAS, matchCarroceria } from '@/lib/carroceria';
 import { compressGallery } from '@/lib/compress-image';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
+import Link from 'next/link';
+import { AuroxModalBase } from '@/components/aurox-modal-base';
 import { useI18n } from '@/contexts/i18n-context';
 
 type Ordem = 'preco_asc' | 'preco_desc' | 'chegada_desc' | 'chegada_asc' | 'marca';
@@ -142,6 +144,7 @@ export default function EstoquePage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
+  const [novoAberto,setNovoAberto]=useState(false);
   const [ordem, setOrdem] = useState<Ordem>('preco_asc');
   const [carroceria, setCarroceria] = useState('todas');
   const [sel, setSel] = useState<any | null>(null);
@@ -150,6 +153,7 @@ export default function EstoquePage() {
   const [novoCarro, setNovoCarro] = useState({ marca: '', modelo: '', ano: '', placa: '', preco: '', cor: '', patio: '', empresa_id: '' });
 
   const canEdit = podeEditarFotos(user?.tipo as string | undefined);
+  const empresasQ=useQuery<{id:number;nome:string}[]>({queryKey:['estoque-quick-empresas'],enabled:user?.tipo==='superadmin',queryFn:async()=>{const {data}=await api.get('/integracoes/empresas');return Array.isArray(data)?data:[];}});
 
   const { data: carrosRaw = [], isLoading } = useQuery({
     queryKey: ['estoque', q],
@@ -231,25 +235,28 @@ export default function EstoquePage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header>
-        <h1 className="text-4xl font-bold tracking-tight">{t('page.estoque.title')}</h1>
+    <div className="studio-vehicle-page mx-auto max-w-7xl space-y-6">
+      <header className="studio-vehicle-header">
+        <div><h1 className="text-4xl font-bold tracking-tight">{t('page.estoque.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('page.estoque.sub')}
-        </p>
+        </p><div className="studio-vehicle-count"><strong>{lista.length}</strong> veículo(s) neste filtro</div></div>
+        {canEdit&&<button type="button" className="studio-btn primary" onClick={()=>setNovoAberto(true)}>+ Adicionar veículo</button>}
       </header>
 
-      {canEdit && (
-        <form className="space-y-3 rounded-xl border bg-card p-4" onSubmit={async (event) => {
+      {canEdit && novoAberto && (
+        <AuroxModalBase wide title="Adicionar veículo" subtitle="Cadastro rápido: confira a empresa e informe os dados mínimos. O cadastro completo possui mais campos." onClose={()=>setNovoAberto(false)}>
+        <form className="studio-vehicle-modal-form space-y-3" onSubmit={async (event) => {
           event.preventDefault();
           try {
             await api.post('/estoque', novoCarro);
             toast.success('Veiculo adicionado ao estoque');
-            setNovoCarro({ marca: '', modelo: '', ano: '', placa: '', preco: '', cor: '', patio: '' });
+            setNovoCarro(old=>({ marca: '', modelo: '', ano: '', placa: '', preco: '', cor: '', patio: '', empresa_id:old.empresa_id }));
+            setNovoAberto(false);
             await qc.invalidateQueries({ queryKey: ['estoque'] });
           } catch (err: any) { toast.error(err?.response?.data?.error || 'Falha ao cadastrar'); }
         }}>
-          <h2 className="text-lg font-semibold">Adicionar veiculo ao estoque</h2>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {(['marca','modelo','ano','placa','preco','cor','patio'] as const).map(campo => (
               <label key={campo} className="block text-sm capitalize">{campo}
@@ -258,12 +265,13 @@ export default function EstoquePage() {
               </label>
             ))}
           </div>
-          {user?.tipo === 'superadmin' && <label className="block text-sm">ID da empresa <Input required value={novoCarro.empresa_id} onChange={e => setNovoCarro(p => ({ ...p, empresa_id: e.target.value }))} /></label>}
-          <Button type="submit">Salvar no estoque</Button>
+          {user?.tipo === 'superadmin' && <label className="block text-sm">Empresa *<select required className="w-full rounded-lg border bg-background px-3 py-2.5" value={novoCarro.empresa_id} onChange={e=>setNovoCarro(p=>({...p,empresa_id:e.target.value}))}><option value="">Selecione a empresa</option>{(empresasQ.data||[]).map(x=><option key={x.id} value={String(x.id)}>{x.nome}</option>)}</select></label>}
+          <div className="studio-modal-actions"><Link href="/estoque/cadastrar">Abrir cadastro completo →</Link><Button type="submit">Salvar no estoque</Button></div>
         </form>
+        </AuroxModalBase>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="studio-vehicle-tools flex flex-wrap gap-3">
         <div className="relative max-w-md flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input

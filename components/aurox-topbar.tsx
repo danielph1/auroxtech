@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
-import {Bell,CalendarDays,ChevronRight,Command,Menu,Moon,Plus,Search,Sun,UserRound,X} from 'lucide-react';
+import {Bell,CalendarDays,ChevronRight,Menu,Moon,Plus,Search,Sun,UserRound,X} from 'lucide-react';
 import {useAuth} from '@/contexts/auth-context';
 import {useTema} from '@/contexts/theme-context';
 
@@ -44,10 +44,9 @@ export function AuroxTopbar({onMenu}:{onMenu:()=>void}){
    <button type="button" className="nova-icon-button nova-menu-trigger" onClick={onMenu} aria-label="Abrir menu"><Menu size={21}/></button>
    <div className="nova-page-title"><span className="nova-breadcrumb">Espaço de trabalho <ChevronRight size={12}/> AUROX</span><strong>{title}</strong></div>
    <div className="nova-global-search">
-    <Search size={17}/><input ref={inputRef} aria-label="Pesquisar páginas do sistema" placeholder="Buscar páginas e ferramentas..." value={busca}
+    <Search size={17}/><input ref={inputRef} aria-label="Pesquisar páginas do sistema" placeholder="Pesquisar páginas (Ctrl+K)" value={busca}
      onFocus={()=>setAberto(true)} onChange={e=>{setBusca(e.target.value);setAberto(true)}}
      onKeyDown={e=>{if(e.key==='Escape')setAberto(false);if(e.key==='Enter'&&links[0]){router.push(links[0].url);setAberto(false);setBusca('');}}}/>
-    <kbd><Command size={12}/> K</kbd>
     {aberto&&busca&&<div className="nova-search-results" role="listbox">{links.length?links.map(item=><Link key={item.url} href={item.url} onClick={()=>{setAberto(false);setBusca('')}}>{item.name}<ChevronRight size={14}/></Link>):<p>Nenhuma página encontrada.</p>}</div>}
    </div>
    <div className="nova-topbar-actions">

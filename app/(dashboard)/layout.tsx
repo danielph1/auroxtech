@@ -6,6 +6,7 @@ import './workspace.css';
 import './nova-studio.css';
 import './studio-ui.css';
 import './studio-operacional.css';
+import './studio-ajustes-v3.css';
 import {ProtectedRoute} from '@/components/protected-route';
 import {SidebarNav} from '@/components/sidebar-nav';
 import {AuroxTopbar} from '@/components/aurox-topbar';

@@ -1,38 +1,11 @@
 'use client';
-import { useAuth } from '@/contexts/auth-context';
-
-export default function SobrePage() {
-  const { user } = useAuth();
-  const empresa = (user as any)?.empresa_nome || 'sua empresa';
-
-  return (
-    <div className="mx-auto max-w-2xl space-y-6 text-sm leading-relaxed">
-      <h1 className="text-2xl font-bold">Sobre nós</h1>
-
-      <p>
-        A <b>Aurox</b> desenvolve sistemas de operação para o varejo automotivo.
-        O que você usa aqui foi feito para a <b>{empresa}</b>: um ambiente único
-        onde lead, ficha, estoque, oficina e faturamento andam juntos, com cada pessoa
-        vendo só o que o cargo permite.
-      </p>
-
-      <p>
-        Não somos a loja. Somos quem constrói a ferramenta. A <b>{empresa}</b> é a
-        contratante e a responsável pelos dados dos clientes. Os funcionários usam o
-        sistema a serviço dela, dentro das funções definidas.
-      </p>
-
-      <h2 className="text-lg font-semibold">Como trabalhamos</h2>
-      <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-        <li>Acesso por cargo. Vendedor, gerente, administrativo, oficina e os demais perfis enxergam recortes diferentes.</li>
-        <li>Registro do que importa. Lead, ficha, venda e movimentação ficam rastreáveis.</li>
-        <li>Sigilo como regra. Dado de cliente não é assunto de conversa fora do sistema.</li>
-        <li>Evolução contínua. O sistema cresce com a operação, sem improvisar planilha paralela.</li>
-      </ul>
-
-      <p className="text-muted-foreground">
-        Aurox Sistemas · ferramenta de uso interno da {empresa}.
-      </p>
-    </div>
-  );
+import Link from 'next/link';
+import {useAuth} from '@/contexts/auth-context';
+import {Building2,ChartColumnIncreasing,ShieldCheck,Users} from 'lucide-react';
+export default function SobrePage(){
+ const {user}=useAuth();const empresa=String((user as any)?.empresa_nome||'sua concessionária');
+ return <main className="legal-v3-page"><header><span className="studio-eyebrow">Conheça a plataforma</span><h1>Sobre a Aurox</h1><p>Gestão automotiva com a operação comercial, a equipe e os processos da concessionária em um só ambiente.</p></header>
+ <section className="legal-v3-lead"><h2>Uma operação mais clara, do primeiro contato à entrega.</h2><p>A Aurox desenvolve uma plataforma de apoio à gestão de concessionárias. O MANU reúne atendimento, leads, fichas de crédito, estoque, oficina, vendas, anúncios e controles operacionais, conforme os módulos disponibilizados à sua empresa.</p><p>A ferramenta oferece registros e organização; decisões comerciais, autorização de crédito, condições contratuais e obrigações perante clientes continuam sob responsabilidade dos agentes envolvidos na operação.</p></section>
+ <div className="legal-v3-grid"><section><Building2 size={22}/><h3>Organização</h3><p>Empresas, lojas, funcionários e atividades são separados por escopo operacional e permissões.</p></section><section><Users size={22}/><h3>Colaboração</h3><p>O sistema ajuda colaboradores e gestores a acompanhar atendimento, tarefas e responsabilidades.</p></section><section><ChartColumnIncreasing size={22}/><h3>Acompanhamento</h3><p>Indicadores e históricos dependem de registros reais e da disponibilidade dos dados.</p></section><section><ShieldCheck size={22}/><h3>Uso responsável</h3><p>Acesso individual, confidencialidade e tratamento apropriado de informações pessoais fazem parte da operação.</p></section></div>
+ <section className="legal-v3-lead"><h2>Quem utiliza e quem presta o serviço</h2><p>Esta área é utilizada por colaboradores autorizados da {empresa}. A concessionária responde pela operação comercial e pelos dados de clientes sob seu controle. A Aurox fornece a tecnologia, nos limites do contrato e das responsabilidades legais aplicáveis.</p><p>Para dúvidas e solicitações relacionadas ao sistema, acesse <Link href="/ajuda">Ajuda e suporte</Link>. Consulte também a <Link href="/privacidade">Política de Privacidade</Link> e os <Link href="/termos">Termos de Uso</Link>.</p></section></main>;
 }

@@ -161,6 +161,9 @@ export async function POST(req: NextRequest) {
   const nome = String(body.nome_lead || body.nome || '').trim();
   if (!nome) return NextResponse.json({ error: 'Informe o nome do lead' }, { status: 400 });
 
+  // Vendedor nunca pode escolher ou forjar outro responsável por body.
+  if (u.tipo === 'vendedor' && body.vendedor_id != null && Number(body.vendedor_id) !== Number(u.vendedor_id))
+    return NextResponse.json({ error: 'O lead deve ser cadastrado em seu próprio usuário' }, { status: 403 });
   const vendedorId = u.tipo === 'vendedor' ? Number(u.vendedor_id) : Number(body.vendedor_id || u.vendedor_id);
   if (!Number.isSafeInteger(vendedorId) || vendedorId <= 0)
     return NextResponse.json({ error: 'Selecione o vendedor responsável. O lead precisa pertencer a uma empresa.' }, { status: 400 });

@@ -1,86 +1,37 @@
 'use client';
 import Link from 'next/link';
-import {
-  User, Heart, Palette, Info, Shield, ChevronRight, Bell, Languages,
-  HelpCircle, FileText, Volume2, MonitorSmartphone, Lock,
-} from 'lucide-react';
-import { useI18n } from '@/contexts/i18n-context';
-import { Lang, LANG_LABELS } from '@/lib/i18n';
-import { toast } from 'sonner';
+import {useAuth} from '@/contexts/auth-context';
+import {Bell,CalendarDays,ChevronRight,CircleHelp,FileClock,FileText,Heart,Info,LogOut,Palette,ShieldCheck,UserRound,Wallet,Workflow} from 'lucide-react';
+import type {LucideIcon} from 'lucide-react';
 
-const Item = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => (
-  <Link
-    href={href}
-    className="flex items-center justify-between border-b border-border px-4 py-4 text-sm last:border-0"
-  >
-    <span className="flex items-center gap-3">
-      <Icon className="h-5 w-5 text-muted-foreground" />
-      {label}
-    </span>
-    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-  </Link>
-);
-
-export default function ConfiguracoesPage() {
-  const { t, lang, setLang } = useI18n();
-
-  async function changeLang(l: Lang) {
-    await setLang(l);
-    toast.success(LANG_LABELS[l]);
-  }
-
-  return (
-    <div className="mx-auto max-w-lg space-y-6 pb-24">
-      <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
-
-      <section>
-        <h2 className="mb-2 px-1 text-sm font-medium text-muted-foreground">{t('settings.personal')}</h2>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Item href="/minha-conta" icon={User} label={t('settings.my_account')} />
-          <Item href="/favoritos" icon={Heart} label={t('settings.favorites')} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 px-1 text-sm font-medium text-muted-foreground">{t('settings.prefs')}</h2>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Item href="/temas" icon={Palette} label={t('settings.theme')} />
-          <Item href="/configuracoes/notificacoes" icon={Bell} label={t('settings.notifications')} />
-          <div className="border-b border-border px-4 py-3 last:border-0">
-            <div className="mb-2 flex items-center gap-3 text-sm">
-              <Languages className="h-5 w-5 text-muted-foreground" />
-              {t('settings.language')}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(LANG_LABELS) as Lang[]).map((L) => (
-                <button
-                  key={L}
-                  type="button"
-                  onClick={() => changeLang(L)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                    lang === L ? 'border-primary bg-primary/10 font-medium' : 'border-border'
-                  }`}
-                >
-                  {LANG_LABELS[L]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Item href="/configuracoes/notificacoes" icon={Volume2} label={t('settings.sound')} />
-          <Item href="/minha-conta" icon={MonitorSmartphone} label={t('settings.devices')} />
-          <Item href="/configuracoes/notificacoes" icon={Lock} label={t('settings.privacy_mode')} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 px-1 text-sm font-medium text-muted-foreground">{t('settings.institutional')}</h2>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Item href="/sobre" icon={Info} label={t('settings.about')} />
-          <Item href="/privacidade" icon={Shield} label={t('settings.privacy')} />
-          <Item href="/termos" icon={FileText} label="Termos de Uso" />
-          <Item href="/ajuda" icon={HelpCircle} label="Ajuda / suporte" />
-        </div>
-      </section>
-    </div>
-  );
+type Item = {href:string;label:string;info:string;icon:LucideIcon;roles?:string[]};
+const pessoal:Item[]=[
+ {href:'/minha-conta',label:'Minha conta',info:'Nome, telefone, e-mail, foto e acesso',icon:UserRound},
+ {href:'/favoritos',label:'Favoritos',info:'Seus leads e registros destacados',icon:Heart},
+ {href:'/agenda',label:'Agenda',info:'Visitas, retornos e compromissos',icon:CalendarDays},
+];
+const preferencias:Item[]=[
+ {href:'/temas',label:'Aparência',info:'Tema claro, escuro e opções liberadas',icon:Palette},
+ {href:'/configuracoes/notificacoes',label:'Notificações e sons',info:'Escolha os avisos, dispositivos inscritos e faça um teste',icon:Bell},
+];
+const operacao:Item[]=[
+ {href:'/integracoes',label:'Integrações',info:'Conexões de mensagens e classificados',icon:Workflow,roles:['superadmin','admin','marketing']},
+ {href:'/financas',label:'Contas e vencimentos',info:'Controle de recebimentos e despesas',icon:Wallet,roles:['superadmin','admin']},
+ {href:'/historico',label:'Histórico e auditoria',info:'Alterações e movimentações autorizadas',icon:FileClock,roles:['superadmin','admin','gerente','marketing']},
+];
+const institucional:Item[]=[
+ {href:'/sobre',label:'Sobre a Aurox',info:'Propósito e responsabilidades da plataforma',icon:Info},
+ {href:'/privacidade',label:'Política de Privacidade',info:'Tratamento de dados, proteção e direitos',icon:ShieldCheck},
+ {href:'/termos',label:'Termos de Uso',info:'Condições e uso responsável do sistema',icon:FileText},
+ {href:'/ajuda',label:'Ajuda e suporte',info:'Orientações e abertura de chamados',icon:CircleHelp},
+];
+function Grupo({titulo,itens,role}:{titulo:string;itens:Item[];role:string}){
+ const disponiveis=itens.filter(x=>!x.roles||x.roles.includes(role));
+ if(!disponiveis.length)return null;
+ return <section className="settings-v3-group"><h2>{titulo}</h2><div className="settings-v3-links">{disponiveis.map(({href,icon:Icon,label,info})=><Link key={href} href={href} className="settings-v3-link"><span className="settings-v3-link-icon"><Icon size={19}/></span><span className="settings-v3-link-info"><strong>{label}</strong><small>{info}</small></span><ChevronRight size={17} className="settings-v3-chevron"/></Link>)}</div></section>;
+}
+export default function ConfiguracoesPage(){
+ const {user,logout}=useAuth();const role=String(user?.tipo||'').toLowerCase();
+ return <div className="settings-v3-page"><header className="settings-v3-heading"><span className="studio-eyebrow">Preferências e conta</span><h1>Configurações</h1><p>As ferramentas essenciais para ajustar sua experiência e proteger o acesso.</p></header>
+ <div className="settings-v3-columns"><main><Grupo titulo="Minha área" itens={pessoal} role={role}/><Grupo titulo="Preferências" itens={preferencias} role={role}/><Grupo titulo="Administração e operação" itens={operacao} role={role}/></main><aside><Grupo titulo="Informações e suporte" itens={institucional} role={role}/><section className="settings-v3-signout"><div><strong>Encerrar sessão</strong><p>Ao sair, será necessário entrar novamente com suas credenciais.</p></div><button type="button" onClick={()=>void logout()} className="settings-v3-logout"><LogOut size={17}/>Sair da minha conta</button></section></aside></div></div>;
 }

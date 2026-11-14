@@ -7,13 +7,14 @@ const GERENCIA=new Set(['admin','gerente','marketing','superadmin']);
 const CRIADORES=new Set(['admin','gerente','superadmin']);
 const gestor=(u:SessionUser)=>GERENCIA.has(String(u.tipo).toLowerCase());
 function filtro(u:SessionUser, params:unknown[], tabela='t') {
+ if(u.tipo==='gerente'&&!u.loja)return 'FALSE';
  const parts:string[]=[];
  if(u.tipo!=='superadmin') {
   if(!u.empresa_id) return 'FALSE';
   params.push(u.empresa_id);
   const x=`$${params.length}`;
   parts.push(`EXISTS(SELECT 1 FROM public.usuarios z WHERE z.id=${tabela}.destinatario_id AND z.empresa_id=${x})`);
-  parts.push(`EXISTS(SELECT 1 FROM public.usuarios z WHERE z.id=${tabela}.criado_por_id AND z.empresa_id=${x})`);
+  parts.push(`EXISTS(SELECT 1 FROM public.usuarios z WHERE z.id=${tabela}.criado_por_id AND (z.empresa_id=${x} OR LOWER(z.tipo)='superadmin'))`);
  }
  if(!gestor(u)) {params.push(u.id);parts.push(`${tabela}.destinatario_id=$${params.length}`);}
  if(u.tipo==='gerente' && u.loja){
@@ -26,7 +27,12 @@ function filtro(u:SessionUser, params:unknown[], tabela='t') {
 }
 export async function GET(req:NextRequest){
  const u=await requireUser(req);if(!u)return NextResponse.json({error:'Não autenticado'},{status:401});
- try {const params:unknown[]=[];const where=filtro(u,params);
+ try {const params:unknown[]=[];const empresaFiltro=Number(req.nextUrl.searchParams.get('empresa_id'));
+  let where=filtro(u,params);
+  if(u.tipo==='superadmin'&&Number.isSafeInteger(empresaFiltro)&&empresaFiltro>0){
+   params.push(empresaFiltro);const e=`$${params.length}`;
+   where+=` AND EXISTS(SELECT 1 FROM public.usuarios d2 WHERE d2.id=t.destinatario_id AND d2.empresa_id=${e}) AND EXISTS(SELECT 1 FROM public.usuarios c2 WHERE c2.id=t.criado_por_id AND (c2.empresa_id=${e} OR LOWER(c2.tipo)='superadmin'))`;
+  }
   const {rows}=await query(`SELECT t.*, d.nome AS destinatario_nome,c.nome AS criador_nome FROM public.tarefas t
   LEFT JOIN public.usuarios d ON d.id=t.destinatario_id LEFT JOIN public.usuarios c ON c.id=t.criado_por_id
   WHERE ${where} ORDER BY CASE WHEN t.resposta IS NULL THEN 0 ELSE 1 END,t.created_at DESC LIMIT 300`,params);
@@ -39,12 +45,14 @@ export async function POST(req:NextRequest){
  try {const b=await req.json();const titulo=String(b.titulo||'').trim();if(!titulo||titulo.length>180)return NextResponse.json({error:'Título obrigatório (máximo 180 caracteres)'},{status:400});
   const desc=String(b.descricao||'').slice(0,2000)||null;
   const params:unknown[]=[];
+  const empresaSolicitada=Number(b.empresa_id||0);
+  const empresaAlvo=u.tipo==='superadmin'?empresaSolicitada:Number(u.empresa_id||0);
+  if(!Number.isSafeInteger(empresaAlvo)||empresaAlvo<=0)return NextResponse.json({error:'Selecione uma empresa válida'},{status:400});
+  if(u.tipo!=='superadmin'&&b.empresa_id!=null&&Number(b.empresa_id)!==empresaAlvo)return NextResponse.json({error:'Empresa fora de seu escopo'},{status:403});
   let where='COALESCE(z.ativo,TRUE)=TRUE';
-  if(u.tipo!=='superadmin'){
-   if(!u.empresa_id)return NextResponse.json({error:'Empresa não vinculada'},{status:403});
-   params.push(u.empresa_id);where+=` AND z.empresa_id=$${params.length}`;
-  }
-  if(u.tipo==='gerente' && u.loja){params.push(u.loja.toUpperCase());where+=` AND UPPER(COALESCE(v.loja,z.loja,''))=$${params.length}`;}
+  params.push(empresaAlvo);where+=` AND z.empresa_id=$${params.length}`;
+  if(u.tipo==='gerente'&&!u.loja)return NextResponse.json({error:'Gerente sem loja vinculada'},{status:403});
+  if(u.tipo==='gerente'){params.push(u.loja.toUpperCase());where+=` AND UPPER(COALESCE(v.loja,z.loja,''))=$${params.length}`;}
   if(b.destinatario_tipo){
    const tipo=String(b.destinatario_tipo).toLowerCase();
    const aliases:Record<string,string[]>={vendedores:['vendedor'],guaribas:['guariba'],mecanicos:['mecanico'],documentistas:['documentista','documento']};
