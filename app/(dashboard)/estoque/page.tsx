@@ -370,11 +370,11 @@ export default function EstoquePage() {
 
       {sel && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+          className="aurox-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
           onClick={() => setSel(null)}
         >
           <div
-            className="max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-border bg-background p-5 shadow-xl sm:rounded-2xl"
+            role="dialog" aria-modal="true" aria-label="Detalhes do veículo" className="aurox-stock-modal max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-border bg-background p-5 shadow-xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-3">

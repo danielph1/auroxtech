@@ -415,14 +415,22 @@ export default function AnunciosPage() {
       </div>
 
       {sel && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl border bg-background p-5 space-y-3 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg">Veículo · anunciar</h2>
-              <button type="button" onClick={() => setSel(null)}><X className="h-5 w-5" /></button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+        <div className="aurox-modal-backdrop aurox-ads-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!publishing&&!saving)setSel(null)}}>
+          <section className="aurox-ads-modal" role="dialog" aria-modal="true" aria-labelledby="aurox-ads-dialog-title">
+            <header className="aurox-ads-header">
+              <div>
+                <span className="aurox-ads-eyebrow">Central de anúncios / veículo</span>
+                <h2 id="aurox-ads-dialog-title">Preparar anúncio</h2>
+                <p>{nomeCarro(sel)} · {sel.placa || 'Sem placa informada'} · {money(sel.preco)}</p>
+              </div>
+              <button type="button" className="aurox-ads-close" aria-label="Fechar anúncio" disabled={publishing||saving} onClick={()=>setSel(null)}><X className="h-5 w-5" /></button>
+            </header>
+            <div className="aurox-ads-body">
+              <div className="aurox-ads-grid">
+                <div className="aurox-ads-column">
+                  <section className="aurox-ads-section">
+                    <div className="aurox-ads-section-title"><span>01</span><div><h3>Identificação do veículo</h3><p>Edite os dados do estoque sem sair desta janela.</p></div></div>
+                    <div className="grid grid-cols-2 gap-2 aurox-ads-fields">
               {([
                 ['marca', 'Marca'],
                 ['modelo', 'Modelo'],
@@ -475,7 +483,9 @@ export default function AnunciosPage() {
               {saving ? 'Salvando…' : 'Salvar no estoque'}
             </button>
 
-            <div className="text-sm font-medium">Fotos</div>
+                  </section>
+                  <section className="aurox-ads-section">
+                    <div className="aurox-ads-section-title"><span>02</span><div><h3>Fotos do veículo</h3><p>As fotos do estoque ficam preservadas. Adicione imagens reais para os portais.</p></div></div>
             <div className="flex flex-wrap gap-2">
               {fotos.map((f) => (
                 <div key={f.id} className="relative h-16 w-20 overflow-hidden rounded-md border">
@@ -533,7 +543,9 @@ export default function AnunciosPage() {
               Se a imagem tiver pouca definição, substitua-a por uma foto melhor.
             </p>
 
-            <hr className="border-border" />
+                  </section>
+                  <section className="aurox-ads-section">
+                    <div className="aurox-ads-section-title"><span>03</span><div><h3>Apresentação do anúncio</h3><p>Título e descrição que serão usados para publicar.</p></div></div>
 
             <label className="block text-sm">
               Título do anúncio
@@ -548,7 +560,12 @@ export default function AnunciosPage() {
               />
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-border p-3">
+                  </section>
+                </div>
+                <div className="aurox-ads-column">
+                  <section className="aurox-ads-section">
+                    <div className="aurox-ads-section-title"><span>04</span><div><h3>Loja e requisitos de publicação</h3><p>Localização, WhatsApp e dados solicitados pelo portal.</p></div></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-border p-3">
               <label className="block text-xs">WhatsApp da loja (DDD + número)
                 <input className="mt-1 w-full rounded-md border bg-background p-2 text-sm"
                   placeholder="Ex.: 21999999999" value={whatsappContato}
@@ -631,8 +648,10 @@ export default function AnunciosPage() {
                 na conta da concessionária.
               </p>
             </div>
-            <div className="text-sm font-medium">Plataformas (mín. 1)</div>
-            <div className="flex flex-wrap gap-2">
+                  </section>
+                  <section className="aurox-ads-section">
+                    <div className="aurox-ads-section-title"><span>05</span><div><h3>Escolher plataformas</h3><p>Selecione ao menos um canal. Cada portal mantém seus próprios requisitos.</p></div></div>
+            <div className="aurox-ads-platforms">
               {PLATS.map((p) => {
                 const on = plats.includes(p.id);
                 return (
@@ -648,15 +667,17 @@ export default function AnunciosPage() {
               })}
             </div>
 
-            <button
-              type="button"
-              disabled={publishing || !plats.length}
-              onClick={publicar}
-              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {publishing ? 'Publicando…' : 'Publicar nas plataformas'}
-            </button>
-          </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+            <footer className="aurox-ads-footer">
+              <p>Os dados do veículo permanecem no estoque. Uma tentativa de publicação não significa anúncio ativo: acompanhe o retorno de cada plataforma.</p>
+              <button type="button" disabled={publishing || !plats.length} onClick={publicar} className="aurox-ads-submit">
+                {publishing ? 'Publicando…' : 'Publicar nas plataformas'}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </div>
