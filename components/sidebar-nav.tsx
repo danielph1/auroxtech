@@ -4,7 +4,7 @@ import Image from 'next/image';
 import {usePathname} from 'next/navigation';
 import {useState} from 'react';
 import {useAuth} from '@/contexts/auth-context';
-import {BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2} from 'lucide-react';
+import {BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2,Handshake} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 type Item={href:string;label:string;icon:LucideIcon;roles?:string[]};
 const C=['vendedor','gerente','admin','superadmin','marketing'];
@@ -26,6 +26,7 @@ const S=[
  {id:'admin',title:'Administração',links:[{href:'/equipe',label:'Equipe',icon:Users,roles:G},
  {href:'/gestao-usuarios',label:'Usuários',icon:BookUser,roles:AD},{href:'/financas',label:'Finanças',icon:Wallet,roles:['admin','superadmin']},
  {href:'/historico',label:'Auditoria',icon:History,roles:M},{href:'/integracoes',label:'Integrações',icon:PlugZap,roles:AD},
+ {href:'/parcerias',label:'Rede de Parceiros',icon:Handshake,roles:['admin','superadmin']},
  {href:'/aurox',label:'Gestão Aurox',icon:Building2,roles:['superadmin']},
  {href:'/configuracoes',label:'Configurações',icon:Settings2}]}
 ] as {id:string;title:string;links:Item[]}[];

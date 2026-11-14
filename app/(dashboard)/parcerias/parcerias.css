@@ -1,0 +1,76 @@
+.arx-rede-page{width:100%;max-width:1320px;margin:0 auto;padding:clamp(14px,3vw,34px);display:flex;flex-direction:column;gap:22px;color:hsl(var(--foreground))}
+.arx-rede-head,.arx-rede-heading,.arx-rede-card-title,.arx-rede-entry,.arx-rede-entry-actions,.arx-rede-stats span,.arx-rede-btn,.arx-rede-footnote,.arx-rede-resource-top,.arx-rede-result-head,.arx-rede-pages{display:flex;align-items:center;gap:12px}
+.arx-rede-head{justify-content:space-between;align-items:flex-start;gap:20px}
+.arx-rede-heading{align-items:flex-start}
+.arx-rede-mark{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;background:rgba(103,94,238,.1);color:#8177ed;border:1px solid rgba(103,94,238,.2);border-radius:14px}
+.arx-rede-kicker{font-size:10px;font-weight:750;letter-spacing:.13em;color:#8980e8}
+.arx-rede-heading h1{font-size:clamp(25px,2.3vw,34px);font-weight:750;letter-spacing:-.035em;margin:2px 0 7px}
+.arx-rede-heading p,.arx-rede-card-title p,.arx-rede-entry p,.arx-rede-footnote,.arx-rede-security p,.arx-rede-company small{font-size:12px;line-height:1.65;color:hsl(var(--muted-foreground))}
+.arx-rede-card,.arx-rede-company,.arx-rede-stats>div{border:1px solid hsl(var(--border)/.9);background:hsl(var(--card)/.88);border-radius:18px;padding:22px;box-shadow:0 7px 35px rgba(0,0,0,.025)}
+.arx-rede-setup,.arx-rede-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
+.arx-rede-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.arx-rede-stats>div{padding:18px;display:grid;gap:5px}
+.arx-rede-stats span{font-size:12px;font-weight:700;color:hsl(var(--muted-foreground));gap:8px}
+.arx-rede-stats strong{font-size:29px;line-height:1.2;font-weight:750;font-variant-numeric:tabular-nums}
+.arx-rede-stats small{font-size:11px;color:hsl(var(--muted-foreground));line-height:1.4}
+.arx-rede-card{display:flex;flex-direction:column;gap:16px;min-width:0}
+.arx-rede-card-title{align-items:flex-start;gap:12px}
+.arx-rede-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:rgba(121,109,236,.09);color:#978cf8}
+.arx-rede-card-title h2{font-size:16px;font-weight:750;line-height:1.4}
+.arx-rede-card-title p{margin-top:4px}
+.arx-rede-input,.arx-rede-company select{display:block;width:100%;min-width:0;border:1px solid hsl(var(--border));background:hsl(var(--background));color:hsl(var(--foreground));border-radius:11px;padding:11px 12px;font-size:13px;outline:none}
+.arx-rede-input:focus-visible,.arx-rede-company select:focus-visible{border-color:#8980e8;box-shadow:0 0 0 3px rgba(137,128,232,.12)}
+.arx-rede-label,.arx-rede-company label{font-size:12px;font-weight:650;color:hsl(var(--foreground))}
+.arx-rede-company{display:flex;flex-direction:column;gap:8px}
+.arx-rede-company select{max-width:460px}
+.arx-rede-company small{display:block}
+.arx-rede-checks{display:flex;flex-wrap:wrap;gap:10px}
+.arx-rede-checks label{display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border:1px solid hsl(var(--border));border-radius:10px;font-size:12px;cursor:pointer;min-height:40px}
+.arx-rede-checks input,.arx-rede-lgpd input{accent-color:#6d61e7;flex:none;width:15px;height:15px}
+.arx-rede-checks.small label{padding:6px 10px;min-height:32px}
+.arx-rede-lgpd{display:flex;gap:11px;align-items:flex-start;padding:12px;border:1px solid hsl(var(--border));border-radius:10px;font-size:11px;line-height:1.6;color:hsl(var(--muted-foreground));cursor:pointer}
+.arx-rede-lgpd input{margin-top:2px}
+.arx-rede-btn{justify-content:center;border-radius:10px;border:1px solid hsl(var(--border));font-size:12px;font-weight:700;min-height:38px;padding:9px 13px;cursor:pointer;text-align:center;transition:background .16s ease,transform .16s ease;white-space:normal}
+.arx-rede-btn:hover:not(:disabled){transform:translateY(-1px)}
+.arx-rede-btn:disabled{opacity:.45;cursor:not-allowed}
+.arx-rede-btn.primary{background:#665ae6;border-color:#665ae6;color:#fff}
+.arx-rede-btn.primary:hover:not(:disabled){background:#5449ca}
+.arx-rede-btn.secondary{background:hsl(var(--background));color:hsl(var(--foreground))}
+.arx-rede-btn.secondary:hover:not(:disabled){background:hsl(var(--muted))}
+.arx-rede-btn.subtle{background:transparent;border-color:transparent;color:hsl(var(--muted-foreground))}
+.arx-rede-btn.danger{background:rgba(194,55,76,.12);border-color:rgba(194,55,76,.25);color:#ea7280}
+.arx-rede-secret{display:flex;align-items:center;gap:6px;border:1px dashed #8d83db;background:rgba(119,106,224,.06);padding:12px;border-radius:10px}
+.arx-rede-secret code{flex:1;overflow-wrap:anywhere;font-size:12px;line-height:1.6;color:hsl(var(--foreground))}
+.arx-rede-secret button{width:34px;height:34px;display:grid;place-items:center;flex:none;border-radius:8px;border:1px solid hsl(var(--border));cursor:pointer}
+.arx-rede-hint,.arx-rede-empty,.arx-rede-loading{padding:22px 15px;border:1px dashed hsl(var(--border));border-radius:12px;text-align:center;color:hsl(var(--muted-foreground));font-size:12px;line-height:1.7}
+.arx-rede-footnote{align-items:flex-start;gap:8px}
+.arx-rede-footnote svg{flex-shrink:0}
+.arx-rede-entry{justify-content:space-between;align-items:center;border-top:1px solid hsl(var(--border)/.75);padding:16px 0;gap:15px}
+.arx-rede-entry:first-of-type{border-top:0}
+.arx-rede-entry h3{font-weight:750;font-size:14px;margin:4px 0}
+.arx-rede-entry-actions{gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.arx-rede-entry-actions .arx-rede-btn{min-height:35px}
+.arx-rede-entry-tag{color:#6aaf99;text-transform:uppercase;font-size:10px;letter-spacing:.08em;font-weight:750}
+.arx-rede-entry-tag.pending{color:#cb9750}
+.arx-rede-entry.column{align-items:flex-start}
+.arx-rede-results{gap:16px}
+.arx-rede-result-head{justify-content:space-between}
+.arx-rede-result-head h2{font-size:20px;font-weight:750;margin-top:2px}
+.arx-rede-resource-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.arx-rede-resource{min-width:0;display:grid;align-content:start;gap:8px;border:1px solid hsl(var(--border));border-radius:12px;padding:14px;background:hsl(var(--background)/.8)}
+.arx-rede-resource-top{min-width:0;align-items:flex-start;gap:8px;font-size:13px}
+.arx-rede-resource-top svg{flex:none;color:#857aed}
+.arx-rede-resource-top strong{overflow-wrap:anywhere}
+.arx-rede-resource-muted{font-size:11px;color:hsl(var(--muted-foreground));overflow-wrap:anywhere}
+.arx-rede-conflict{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:7px;border:1px solid #c9933a;border-radius:7px;color:#c9933a}
+.arx-rede-price{font-size:17px;font-weight:750;color:#24a5a4}
+.arx-rede-pages{justify-content:center;gap:15px;font-size:12px}
+.arx-rede-security{display:flex;align-items:flex-start;gap:13px;padding:18px;border-radius:14px;border:1px solid rgba(107,185,159,.25);background:rgba(85,170,143,.05)}
+.arx-rede-security svg{color:#50ad96;flex-shrink:0}
+.arx-rede-security strong{font-size:12px;font-weight:750}
+.arx-rede-security p{margin-top:3px}
+.arx-rede-restrito{margin:10vh auto;text-align:center;display:grid;justify-items:center;gap:12px;color:hsl(var(--muted-foreground))}
+.arx-rede-restrito h1{font-size:23px;font-weight:750;color:hsl(var(--foreground))}
+@media(max-width:1100px){.arx-rede-setup,.arx-rede-columns{grid-template-columns:1fr}.arx-rede-resource-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.arx-rede-page{padding:14px 12px 105px;gap:14px}.arx-rede-head{align-items:flex-start}.arx-rede-heading{gap:9px}.arx-rede-mark{width:40px;height:40px;flex-basis:40px}.arx-rede-heading h1{font-size:23px}.arx-rede-head>.arx-rede-btn{padding:9px;min-width:40px;font-size:0;gap:0}.arx-rede-head>.arx-rede-btn svg{width:18px;height:18px}.arx-rede-stats{grid-template-columns:1fr 1fr;gap:9px}.arx-rede-stats>div{padding:12px}.arx-rede-stats>div:last-child{grid-column:span 2}.arx-rede-stats strong{font-size:24px}.arx-rede-card{padding:16px}.arx-rede-entry{flex-direction:column;align-items:stretch}.arx-rede-entry-actions{justify-content:flex-start}.arx-rede-resource-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.arx-rede-btn{transition:none}.arx-rede-btn:hover:not(:disabled){transform:none}}
