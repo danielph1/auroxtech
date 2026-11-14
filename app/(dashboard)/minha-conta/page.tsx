@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useI18n } from '@/contexts/i18n-context';
 import { Lang, LANG_LABELS } from '@/lib/i18n';
+import { AuroxMeuRitmo } from '@/components/aurox-meu-ritmo';
 
 function comprimir(file: File): Promise<Blob> {
   return new Promise((resolve) => {
@@ -93,8 +94,9 @@ export default function MinhaContaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-5">
+    <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold">{t('account.title')}</h1>
+      <AuroxMeuRitmo/>
       <div className="flex items-center gap-4">
         <label className="cursor-pointer">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary text-2xl font-bold text-primary-foreground">
@@ -104,7 +106,7 @@ export default function MinhaContaPage() {
         </label>
         <span className="text-sm text-muted-foreground">{t('account.photo_hint')}</span>
       </div>
-      <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <div className="max-w-2xl space-y-4 rounded-2xl border border-border bg-card p-5">
         <div>
           <Label>{t('account.name')}</Label>
           <div className="flex gap-2">

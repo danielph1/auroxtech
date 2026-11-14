@@ -54,7 +54,7 @@ export function AuroxTopbar({onMenu}:{onMenu:()=>void}){
     <button type="button" onClick={()=>setTema(claro?'escuro':'claro')} className="nova-icon-button" aria-label={claro?'Ativar tema escuro':'Ativar tema claro'} title={claro?'Tema escuro':'Tema claro'}>{claro?<Moon size={18}/>:<Sun size={18}/>}</button>
     <Link href="/configuracoes/notificacoes" className="nova-icon-button" title="Configurar notificações"><Bell size={18}/></Link>
     {['vendedor','gerente','admin','superadmin','marketing'].includes(cargo)&&<Link href="/novo-lead" className="nova-primary-action"><Plus size={16}/><span>Novo lead</span></Link>}
-    <Link href="/minha-conta" className="nova-topbar-user" title="Meu perfil"><span>{String(user?.nome||user?.login||'?')[0]?.toUpperCase()}</span><strong>{String(user?.nome||user?.login||'Perfil').split(' ')[0]}</strong></Link>
+    <Link href="/configuracoes" className="nova-topbar-user" title="Configurações"><span>{String(user?.nome||user?.login||'?')[0]?.toUpperCase()}</span><strong>{String(user?.nome||user?.login||'Perfil').split(' ')[0]}</strong></Link>
    </div>
   </div>
  </header>;
