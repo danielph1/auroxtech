@@ -3,7 +3,6 @@ import { getPool, query, queryOne } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { leadAcessivel } from '@/lib/lead-access';
 import { notificar } from '@/lib/notify';
-import { enviarWhatsAppDaEmpresa } from '@/lib/zapi-empresa';
 import { sendAuroxMessage } from '@/lib/aurox-whatsapp/send';
 
 export const runtime = 'nodejs';
@@ -167,13 +166,13 @@ export async function POST(req: NextRequest) {
       [u.id, texto, nome, mime, b64, leadId],
     );
     // Priorizar Aurox-WhatsApp desta empresa, inclusive para leads manuais.
-    // Sem sessão Aurox habilitada, manter Z-API legada; falha no Aurox não autoriza fallback.
+    // Sem sessao Aurox habilitada, nao enviar por outro provedor sem consentimento explicito.
     let whatsapp: {ok:boolean;status:string;message:string};
     if (/^\[interno\]/i.test(msg)) {
       // Observações de atendimento são PRIVADAS e nunca devem sair para o cliente.
       whatsapp = {ok:true,status:'internal_only',message:'Observação registrada apenas no MANU.'};
     } else if (b64) {
-      // Nunca converter mídia em texto nem alternar para Z-API silenciosamente.
+      // Nunca converter midia em texto ou alternar silenciosamente de provedor.
       whatsapp = lead.empresaId
         ? await sendAuroxMessage(lead.empresaId, leadId, msg, lead.telefone, {
             base64: b64, mime: mime || '', filename: nome || undefined,
@@ -181,7 +180,7 @@ export async function POST(req: NextRequest) {
         : {ok:false,status:'invalid_scope',message:'Lead sem empresa; arquivo salvo apenas no MANU.'};
     } else if (msg && lead.empresaId) {
       const aurox = await sendAuroxMessage(lead.empresaId, leadId, msg, lead.telefone);
-      whatsapp = aurox.routed ? aurox : await enviarWhatsAppDaEmpresa(lead.empresaId,String(lead.telefone || ''),msg);
+      whatsapp = aurox;
     } else {
       whatsapp = {ok:false,status:'not_configured',message:'Mensagem salva no MANU; envio externo indisponível.'};
     }

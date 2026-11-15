@@ -8,7 +8,6 @@ import {
   Facebook, MessageCircle, Store, Shield, ChevronDown, ChevronUp, Copy, RefreshCcw,
 } from 'lucide-react';
 import { MetaEmbeddedSignup } from '@/components/meta-embedded-signup';
-import { ZapiQrConnect } from '@/components/zapi-qr-connect';
 import { AuroxWhatsappConnect } from '@/components/aurox-whatsapp-connect';
 
 interface Empresa { id: number; nome: string }
@@ -177,7 +176,7 @@ export default function IntegracoesPage() {
     return oauth.find((o) => String(o.empresa_id) === empresa &&
       (o.provedor === provedor ||
         (provedor === 'facebook' && o.provedor === 'meta_facebook') ||
-        (provedor === 'whatsapp' && ['whatsapp_cloud', 'whatsapp_qr'].includes(o.provedor)))
+        (provedor === 'whatsapp' && o.provedor === 'whatsapp_cloud'))
       && o.status === 'conectado');
   }
 

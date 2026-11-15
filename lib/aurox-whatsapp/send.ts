@@ -1,5 +1,5 @@
 import { query, queryOne } from '@/lib/db';
-import { phoneToZapi } from '@/lib/zapi';
+import { phoneToZapi } from '@/lib/aurox-whatsapp/phone';
 import { workerRequest } from './security';
 
 type Delivery = { routed: boolean; ok: boolean; status: string; message: string };
@@ -12,7 +12,7 @@ type Contact = { id: number; chat_id: string; lead_id: number | null; triagem_le
  * para leads MANUAIS (não é necessário que tenham chegado pelo WhatsApp).
  *
  * routed=false: não há instância Aurox habilitada; o chamador pode usar o
- * provedor legado. routed=true: NUNCA tentar Z-API como fallback automático.
+ * nenhum outro provedor automaticamente. routed=true indica que o worker foi selecionado.
  */
 export async function sendAuroxMessage(
   empresaId: number, leadId: number, message: string, telefone?: string | null, media?: AuroxAttachment,
