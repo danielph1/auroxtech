@@ -237,10 +237,6 @@ export default function IntegracoesPage() {
           </div>
         </button>
 
-        <AuroxWhatsappConnect empresaId={empresa} />
-        <ZapiQrConnect empresaId={empresa} onConnected={() => atualizarConexoes()} />
-          <MetaEmbeddedSignup empresaId={empresa} onConnected={() => atualizarConexoes()} />
-
         {/* Mercado Livre OAuth */}
         <button
           type="button"
