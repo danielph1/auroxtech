@@ -8,7 +8,7 @@ export async function GET(req:NextRequest){
  const empresaQuery=Number(req.nextUrl.searchParams.get('empresa_id'));
  if(u.tipo!=='superadmin'&&empresaQuery>0&&empresaQuery!==Number(u.empresa_id))return NextResponse.json({error:'Empresa não autorizada'},{status:403});
  const empresaId=u.tipo==='superadmin'?(Number.isSafeInteger(empresaQuery)&&empresaQuery>0?empresaQuery:null):Number(u.empresa_id);
- const params:unknown[]=[];let scope=`p.empresa_id IS NOT NULL`;
+ const params:unknown[]=[];let scope=`p.empresa_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.faturamentos fx WHERE fx.id=p.faturamento_id AND fx.empresa_id=p.empresa_id AND COALESCE(fx.liberado,FALSE)=TRUE)`;
  if(empresaId){params.push(empresaId);scope+=` AND p.empresa_id=$${params.length}`;}
  const seller=u.tipo==='vendedor'?Number(u.vendedor_id||0):0;
  if(u.tipo==='vendedor'&&!seller)return NextResponse.json([]);
@@ -17,19 +17,7 @@ export async function GET(req:NextRequest){
  if(u.tipo==='gerente'&&!loja)return NextResponse.json({error:'Gerente sem loja atribuída'},{status:403});
  if(loja){params.push(loja);scope+=` AND UPPER(COALESCE(v.loja,fat.loja,''))=UPPER($${params.length})`;}
  try{
-  // Criação de processos idempotente por empresa, nunca cruza placa de outro locatário.
-  if(empresaId)await query(`INSERT INTO public.processos_transferencia
-   (empresa_id,ficha_id,lead_id,placa,nome_lead,marca,modelo,ano,cor,status,observacao)
-   SELECT fat.empresa_id,fat.ficha_id,fat.lead_id,fat.placa,fat.nome,fat.marca,
-     COALESCE(fat.modelo,fat.carro),COALESCE(fat.ano_modelo,fat.ano),fat.cor,
-     'em_andamento','auto: liberado no faturamento'
-   FROM public.faturamentos fat WHERE fat.empresa_id=$1
-     AND (COALESCE(fat.liberado,FALSE)=TRUE OR LOWER(COALESCE(fat.status,'')) IN ('emitido','liberado'))
-     AND NOT EXISTS (SELECT 1 FROM public.processos_transferencia p WHERE p.empresa_id=fat.empresa_id
-        AND ((fat.ficha_id IS NOT NULL AND p.ficha_id=fat.ficha_id)
-          OR (fat.placa IS NOT NULL AND UPPER(REGEXP_REPLACE(COALESCE(p.placa,''),'[^A-Z0-9]','','g'))=
-              UPPER(REGEXP_REPLACE(COALESCE(fat.placa,''),'[^A-Z0-9]','','g')))))
-   LIMIT 50`,[empresaId]);
+  // Processos sao criados exclusivamente no POST /api/faturamento/liberar.
   const {rows}=await query(`SELECT p.id,p.ficha_id,p.status,p.observacao,p.empresa_id,
     COALESCE(p.gravame,FALSE) AS gravame,COALESCE(p.reconheceu_firma,FALSE) AS reconheceu_firma,
     COALESCE(p.documento_pronto,FALSE) AS documento_pronto,p.updated_at,
@@ -37,7 +25,7 @@ export async function GET(req:NextRequest){
     COALESCE(NULLIF(TRIM(p.nome_lead),''),fat.nome,l.nome_lead,'—') AS nome_lead,
     COALESCE(NULLIF(TRIM(p.placa),''),fat.placa,l.placa_carro,'') AS placa,
     COALESCE(NULLIF(TRIM(p.marca),''),fat.marca,est.marca,l.marca_carro,'') AS marca,
-    COALESCE(NULLIF(TRIM(p.modelo),''),fat.modelo,fat.carro,est.modelo,l.produto_interesse,'') AS modelo,
+    COALESCE(NULLIF(TRIM(p.modelo),''),fat.modelo,est.modelo,l.produto_interesse,'') AS modelo,
     COALESCE(NULLIF(TRIM(p.ano::text),''),fat.ano_modelo::text,est.ano::text,l.ano_carro::text,'') AS ano,
     COALESCE(NULLIF(TRIM(p.cor),''),fat.cor,est.cor,l.cor_carro,'') AS cor,
     fat.created_at AS compra_em,fat.status AS fat_status,COALESCE(fat.liberado,FALSE) AS liberado,

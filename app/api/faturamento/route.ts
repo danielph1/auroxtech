@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       `
       SELECT
         f.id, f.nome, f.cpf_cnpj, f.placa, f.marca, f.modelo, f.ano_modelo,
-        f.entrada_total, f.status, f.vendedor_nome, f.criado_por_id,
+        f.entrada_total, f.status, COALESCE(f.liberado,FALSE) AS liberado, f.vendedor_nome, f.criado_por_id,
         f.created_at, f.loja, f.empresa_id
       FROM public.faturamentos f
       WHERE ${where.join(' AND ')}
