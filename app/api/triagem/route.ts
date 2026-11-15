@@ -37,12 +37,16 @@ async function virarLead(triagemId:number,vendedorId:number,empresaPermitida:num
     const {rows:[t]}=await client.query(
       `SELECT * FROM public.triagem WHERE id=$1 AND status='aguardando' FOR UPDATE`,[triagemId]);
     if(!t) {await client.query('ROLLBACK');return null;}
+    if (!Number.isSafeInteger(Number(t.empresa_id)) || Number(t.empresa_id)<=0) {
+      await client.query('ROLLBACK');
+      throw new Error('Triagem sem empresa: atribuição bloqueada');
+    }
     const {rows:[v]}=await client.query(
       `SELECT id,empresa_id FROM public.vendedores v WHERE id=$1 AND COALESCE(v.ativo,FALSE)=TRUE
           AND EXISTS(SELECT 1 FROM public.usuarios u WHERE u.vendedor_id=v.id AND u.empresa_id=v.empresa_id
             AND LOWER(u.tipo)='vendedor' AND COALESCE(u.ativo,FALSE)
             AND LOWER(COALESCE(u.status,'ativo'))='ativo')`,[vendedorId]);
-    if(!v || !v.empresa_id || (t.empresa_id!=null && Number(t.empresa_id)!==Number(v.empresa_id)) ||
+    if(!v || !v.empresa_id || Number(t.empresa_id)!==Number(v.empresa_id) ||
        (empresaPermitida!=null && Number(v.empresa_id)!==empresaPermitida)) {
       await client.query('ROLLBACK');throw new Error('vendedor não pertence à empresa do lead');
     }
@@ -135,8 +139,8 @@ export async function POST(req:NextRequest) {
       vendedorId=v?.id||0;
     }
     if(!Number.isSafeInteger(vendedorId)||vendedorId<=0) return NextResponse.json({error:'escolha um vendedor ou loja'},{status:400});
-    // No caso de triagem legado sem empresa, só superadmin poderá decidir onde atribuí-la.
-    if(alvo.empresa_id==null&&actor.tipo!=='superadmin')return NextResponse.json({error:'triagem antiga sem empresa'},{status:403});
+    // Nenhum cargo pode transformar triagem órfã em lead: regularizar a origem primeiro.
+    if(alvo.empresa_id==null)return NextResponse.json({error:'Triagem antiga sem empresa: regularize a origem antes da atribuição'},{status:409});
     const leadId=await virarLead(id,vendedorId,alvo.empresa_id ?? actor.empresa_id);
     return NextResponse.json({ok:true,lead_id:leadId});
   } catch(err) {console.error('triagem POST',err instanceof Error?err.message:'erro');

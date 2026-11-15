@@ -178,6 +178,8 @@ export async function POST(req: NextRequest) {
     );
     if (!vendedor?.empresa_id) return NextResponse.json({ error: 'Vendedor não encontrado ou sem empresa vinculada' }, { status: 400 });
     const empresaId = Number(vendedor.empresa_id);
+    if (!Number.isSafeInteger(empresaId) || empresaId<=0)
+      return NextResponse.json({error:'Empresa do vendedor inválida'},{status:400});
     if (u.tipo !== 'superadmin' && (!u.empresa_id || Number(u.empresa_id) !== empresaId))
       return NextResponse.json({ error: 'O vendedor não pertence à sua empresa' }, { status: 403 });
     if (u.tipo === 'gerente' && String(u.loja || '').toUpperCase() !== String(vendedor.loja || '').toUpperCase())

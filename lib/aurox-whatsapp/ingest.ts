@@ -83,15 +83,20 @@ export async function processIncoming(ev:IncomingEvent) {
     // Um ID de lead antigo/corrompido nunca pode cruzar empresas.
     if (leadId) {
       const validated=await db.query(`SELECT l.id FROM public.leads l
-        LEFT JOIN public.vendedores v ON v.id=l.vendedor_id
-        WHERE l.id=$1 AND COALESCE(l.empresa_id,v.empresa_id)=$2`,[leadId,ev.empresa_id]);
+        WHERE l.id=$1 AND l.empresa_id=$2`,[leadId,ev.empresa_id]);
       if (!validated.rows.length) leadId=null;
     }
     if (triagemId && !leadId) {
       const tri=await db.query(`SELECT status,lead_id FROM public.triagem
         WHERE id=$1 AND empresa_id=$2`,[triagemId,ev.empresa_id]);
       if (!tri.rows.length) triagemId=null;
-      else if (tri.rows[0].lead_id) leadId=Number(tri.rows[0].lead_id);
+      else if (tri.rows[0].lead_id) {
+        const candidate=Number(tri.rows[0].lead_id);
+        const valid=await db.query(`SELECT id FROM public.leads WHERE id=$1 AND empresa_id=$2`,
+          [candidate,ev.empresa_id]);
+        if (valid.rows.length===1) leadId=candidate;
+        else triagemId=null; // triagem antiga inconsistente: criar nova triagem da MESMA empresa
+      }
       else if (tri.rows[0].status!=='aguardando') triagemId=null;
     }
     // O contato pode existir no WhatsApp ha anos: o criterio e existir ou nao no MANU.
