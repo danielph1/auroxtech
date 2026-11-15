@@ -12,7 +12,7 @@ async function expirar(empresaId: number | null, superadmin: boolean) {
       WHERE status='aguardando' AND empresa_id IS NOT NULL
         AND created_at < now() -
           (CASE WHEN origem='aurox-whatsapp' THEN interval '10 seconds'
-                ELSE interval '1 minute' END)
+                ELSE interval '10 seconds' END)
         AND ($1::boolean OR empresa_id=$2)
       ORDER BY created_at LIMIT 50`,[superadmin,empresaId],
   );
