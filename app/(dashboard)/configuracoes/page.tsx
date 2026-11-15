@@ -23,7 +23,7 @@ const institucional:Item[]=[
  {href:'/sobre',label:'Sobre a Aurox',info:'Propósito e responsabilidades da plataforma',icon:Info},
  {href:'/privacidade',label:'Política de Privacidade',info:'Tratamento de dados, proteção e direitos',icon:ShieldCheck},
  {href:'/termos',label:'Termos de Uso',info:'Condições e uso responsável do sistema',icon:FileText},
- {href:'/ajuda',label:'Ajuda e suporte',info:'Orientações e abertura de chamados',icon:CircleHelp},
+ {href:'/suporte',label:'Ajuda e suporte',info:'Orientações e abertura de chamados',icon:CircleHelp},
 ];
 function Grupo({titulo,itens,role}:{titulo:string;itens:Item[];role:string}){
  const disponiveis=itens.filter(x=>!x.roles||x.roles.includes(role));
