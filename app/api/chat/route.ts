@@ -59,7 +59,35 @@ export async function GET(req: NextRequest) {
     } catch { /* reações opcionais */ }
     const porMensagem = new Map<number, typeof reacoes>();
     for (const r of reacoes) porMensagem.set(r.mensagem_id, [...(porMensagem.get(r.mensagem_id) || []), r]);
-    return NextResponse.json(rows.map((m: any) => ({ ...m, reacoes: porMensagem.get(m.id) || [] })),
+    // Mensagens enviadas pelo WhatsApp externo aparecem à direita, sem alterar
+    // contagem de mensagens do cliente e sem atribuir a um vendedor fictício.
+    // Evita repetir mensagens já gravadas pelo endpoint POST /api/chat.
+    const {rows: externos}=await query(`
+      SELECT wa.id, wa.corpo AS mensagem, wa.recebida_em AS created_at,
+             wa.media_mime, wa.media_path, wa.tipo
+        FROM public.aurox_wa_mensagens wa
+        JOIN public.aurox_wa_contatos c ON c.id=wa.contato_id AND c.empresa_id=wa.empresa_id
+        JOIN public.leads l ON l.id=$1 AND l.empresa_id=wa.empresa_id
+        LEFT JOIN public.triagem t ON t.id=c.triagem_id AND t.empresa_id=c.empresa_id
+       WHERE wa.direcao='enviada' AND (c.lead_id=l.id OR t.lead_id=l.id)
+         AND NOT EXISTS (
+           SELECT 1 FROM public.chat_geral_mensagens m
+           WHERE m.lead_id=l.id AND m.remetente_id IS NOT NULL
+             AND m.mensagem=wa.corpo AND m.created_at BETWEEN
+               wa.recebida_em-INTERVAL '90 seconds' AND wa.recebida_em+INTERVAL '90 seconds'
+         )
+       ORDER BY wa.recebida_em DESC LIMIT 200`,[leadId]);
+    const messages=rows.map((m:any)=>({...m,reacoes:porMensagem.get(m.id)||[]}));
+    const whatsapp=externos.map((m:any)=>({
+      id:-Number(m.id),mensagem:m.mensagem,created_at:m.created_at,
+      remetente_id:null,remetente_nome:'WhatsApp da empresa',
+      remetente_tipo:'equipe_externa',origem_externa:true,
+      aurox_media_chat_id:m.media_path?-Number(m.id):null,
+      aurox_media_mime:m.media_path?m.media_mime:null,
+      arquivo_b64:null,reacoes:[],
+    }));
+    return NextResponse.json([...messages,...whatsapp]
+      .sort((a:any,b:any)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime()),
       { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (e: any) {
     console.error('[chat GET]', e?.code || '', e?.message || 'erro');

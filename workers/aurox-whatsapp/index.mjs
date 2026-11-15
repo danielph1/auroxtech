@@ -1,5 +1,6 @@
 import { startPushDispatcher } from './push-dispatcher.mjs';
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { createHash, createHmac, createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
@@ -93,6 +94,29 @@ async function resolveSenderPhone(client,msg,contact) {
     if(n.length>=10 && n.length<=15)return n;
   }
   return null;
+}
+/** Converte áudio gravado pelo navegador (WebM/MP4) em nota de voz OGG/Opus.
+ * Requer ffmpeg no PATH ou FFMPEG_PATH no .env do worker.
+ * Sem conversão nunca faz fallback silencioso para documento.
+ */
+async function asVoiceOpus(bytes) {
+  const ffmpeg=process.env.FFMPEG_PATH || 'ffmpeg';
+  return await new Promise((resolve,reject)=>{
+    const proc=spawn(ffmpeg,['-hide_banner','-loglevel','error','-i','pipe:0',
+      '-vn','-ac','1','-ar','48000','-c:a','libopus','-b:a','32k',
+      '-application','voip','-f','ogg','pipe:1'],{stdio:['pipe','pipe','pipe']});
+    let chunks=[],total=0,stderr='',done=false;
+    const timer=setTimeout(()=>proc.kill(),30000);
+    proc.stdout.on('data',c=>{total+=c.length;if(total>4_000_000){proc.kill();return;}chunks.push(c);});
+    proc.stderr.on('data',c=>{stderr+=c.toString().slice(0,300);});
+    proc.on('error',e=>{if(!done){done=true;clearTimeout(timer);reject(new Error('FFmpeg não disponível no worker: '+e.message));}});
+    proc.on('close',code=>{clearTimeout(timer);if(done)return;done=true;
+      if(code!==0||!total||total>4_000_000)reject(new Error('Conversão de voz falhou: '+stderr.slice(0,200)));
+      else resolve(Buffer.concat(chunks));
+    });
+    proc.stdin.on('error',()=>{});
+    proc.stdin.end(bytes);
+  });
 }
 async function uploadIncomingMedia(s,msg,messageId) {
   if(!msg.hasMedia || !['image','audio','ptt'].includes(String(msg.type||'')))return null;
@@ -201,11 +225,18 @@ async function startSession(empresa_id,instancia_id) {
       if(!/^\d{5,22}@(c\.us|lid)$/.test(chatId))return;
       if(!['chat','image','audio','ptt'].includes(String(msg.type||'')))return;
       const serialized=String(msg.id?._serialized||`${chatId}_${msg.timestamp||Date.now()}_${msg.type}_${msg.body||''}`);
+      const messageId=digest(serialized);
+      let mediaInfo=null;
+      if(['image','audio','ptt'].includes(String(msg.type||''))) {
+        try {mediaInfo=await uploadIncomingMedia(s,msg,messageId);}
+        catch(e){console.warn(`[${empresa_id}] mídia enviada sem prévia no chat: ${e.message}`);}
+      }
       const ev={type:'outgoing',empresa_id,instancia_id,
-        message_id:digest(serialized),chat_id:chatId,
+        message_id:messageId,chat_id:chatId,
         phone:chatId.endsWith('@c.us')?chatId.split('@')[0]:null,
-        body:String(msg.body||'').slice(0,4000),message_type:String(msg.type||'chat'),
-        sent_at:Number(msg.timestamp||Math.floor(Date.now()/1000))};
+        body:placeholder(msg),message_type:String(msg.type||'chat'),
+        sent_at:Number(msg.timestamp||Math.floor(Date.now()/1000)),
+        ...(mediaInfo||{})};
       await storeEvent(ev);
       void flushOutbox();
     } catch(e) {console.error(`[${empresa_id}] falha ao registrar mensagem enviada`,e.message);}
@@ -324,13 +355,14 @@ const server=http.createServer(async(req,res)=>{
         if(mime.startsWith('audio/') && message)throw new Error('Envie o áudio separado do texto');
         const fallback=mime.startsWith('video/')?'video.mp4':mime.startsWith('audio/')?'audio.webm':'foto.jpg';
         const fileName=String(attachment.filename||fallback).replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,100);
-        const media=new MessageMedia(mime,base64,fileName,bytes.length);
-        // WebM não é voz OGG/Opus: enviar como arquivo de áudio para evitar
-        // afirmar que um codec não suportado será reproduzido como voz nativa.
+        const isVoice=mime.startsWith('audio/');
+        const voiceBytes=isVoice?await asVoiceOpus(bytes):bytes;
+        const outgoingMime=isVoice?'audio/ogg':mime;
+        const outgoingName=isVoice?'voz.ogg':fileName;
+        const media=new MessageMedia(outgoingMime,voiceBytes.toString('base64'),outgoingName,voiceBytes.length);
         const options={
           ...((mime.startsWith('image/')||mime.startsWith('video/')) && message ? {caption:message}:{}),
-          ...(mime==='audio/webm'?{sendMediaAsDocument:true}:{}),
-          ...(mime==='audio/ogg' && /opus/.test(mimeFull)?{sendAudioAsVoice:true}:{}),
+          ...(isVoice?{sendAudioAsVoice:true}:{}),
         };
         sent=await s.client.sendMessage(chatId,media,options);
       } else {

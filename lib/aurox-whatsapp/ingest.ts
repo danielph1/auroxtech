@@ -175,6 +175,30 @@ export async function processOutgoing(ev: Omit<IncomingEvent,'type'> & {type:'ou
       if(phone)leadId=await existingLead(db,ev.empresa_id,phone);
     }
     if(!leadId) {await db.query('COMMIT');return {ok:true,ignored:true,reason:'Sem lead vinculado de forma univoca'};}
+    // O WhatsApp da empresa enviou a mensagem fora do site: manter uma cópia
+    // identificada como "enviada" sem inventar o usuário que a escreveu.
+    const phone=cleanPhone(ev.phone)||(ev.chat_id.endsWith('@c.us')?cleanPhone(ev.chat_id.split('@')[0]):null);
+    const contatoDb=await db.query(`INSERT INTO public.aurox_wa_contatos
+      (empresa_id,chat_id,telefone,nome,lead_id)
+      VALUES($1,$2,$3,'Contato WhatsApp',$4)
+      ON CONFLICT(empresa_id,chat_id) DO UPDATE SET
+        telefone=COALESCE(aurox_wa_contatos.telefone,EXCLUDED.telefone),
+        lead_id=COALESCE(aurox_wa_contatos.lead_id,EXCLUDED.lead_id),
+        ultima_mensagem_em=now()
+      WHERE aurox_wa_contatos.lead_id IS NULL OR aurox_wa_contatos.lead_id=EXCLUDED.lead_id
+      RETURNING id`,[ev.empresa_id,ev.chat_id,phone,leadId]);
+    if(!contatoDb.rowCount){await db.query('ROLLBACK');return {ok:false,error:'Contato associado a outro lead'};}
+    const mediaMime=String(ev.media_mime||'').toLowerCase();
+    const mediaOk=Boolean(ev.media_path && /^(image\/(jpeg|png|webp)|audio\/(ogg|mpeg|mp4|aac|webm))$/.test(mediaMime)
+      && Number.isSafeInteger(ev.media_size) && ev.media_size>0 && ev.media_size<=8*1024*1024
+      && String(ev.media_path).startsWith(`${ev.empresa_id}/${ev.instancia_id}/${ev.message_id}.`));
+    await db.query(`INSERT INTO public.aurox_wa_mensagens
+      (empresa_id,contato_id,mensagem_id,direcao,tipo,corpo,media_path,media_mime,media_size)
+      VALUES($1,$2,$3,'enviada',$4,$5,$6,$7,$8)
+      ON CONFLICT(empresa_id,mensagem_id) DO NOTHING`,
+      [ev.empresa_id,contatoDb.rows[0].id,ev.message_id,String(ev.message_type||'chat').slice(0,40),
+       String(ev.body||'[Mensagem enviada]').slice(0,4000),
+       mediaOk?ev.media_path:null,mediaOk?mediaMime:null,mediaOk?ev.media_size:null]);
     const gravado=await db.query(`INSERT INTO public.manu_lead_acoes_contato
       (empresa_id,lead_id,usuario_id,acao,canal,id_externo)
       VALUES ($1,$2,NULL,'mensagem_enviada','aurox-whatsapp',$3)

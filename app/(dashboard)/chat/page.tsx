@@ -420,7 +420,7 @@ function ChatPageInner() {
             style={{backgroundImage:'radial-gradient(circle at 15% 20%, rgba(168,85,247,0.035) 0 2px, transparent 3px), radial-gradient(circle at 75% 50%, rgba(168,85,247,0.035) 0 1.5px, transparent 3px)',backgroundSize:'72px 72px,110px 110px'}}>
             {mensagens.length===0 && <div className="mx-auto mt-20 max-w-xs rounded-xl bg-card/90 p-4 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda. Escreva abaixo para começar o atendimento.</div>}
             {mensagens.map((m:any)=>{
-              const meu=Number(m.remetente_id)===Number(user?.id);
+              const meu=Boolean(m.origem_externa)||Number(m.remetente_id)===Number(user?.id);
               const interno=/^\[interno\]/i.test(String(m.mensagem||''));
               const transfer=/^Transferido de /i.test(String(m.mensagem||''));
               const textoLimpo=String(m.mensagem||'').replace(/^(?:\[(?:cliente|Aurox-WhatsApp)\]\s*)+/gi,'').replace(/^\[interno\]\s*/i,'').trim();
@@ -437,13 +437,13 @@ function ChatPageInner() {
                   {m.arquivo_b64 && !/^(image|audio)/.test(String(m.arquivo_mime||'')) && <a className="mt-2 block underline" href={`data:${m.arquivo_mime};base64,${m.arquivo_b64}`} download={m.arquivo_nome}>{m.arquivo_nome||'Arquivo'}</a>}
                   <div className="mt-1 flex items-center justify-end gap-2 text-[10px] opacity-60">
                     <time>{m.created_at?new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''}</time>
-                    {meu && <button type="button" aria-label="Opções da mensagem" className="rounded-full px-1 hover:bg-black/10" onClick={()=>setMenuMensagem(menuMensagem===m.id?null:m.id)}><MoreVertical className="h-3.5 w-3.5"/></button>}
+                    {meu && !m.origem_externa && <button type="button" aria-label="Opções da mensagem" className="rounded-full px-1 hover:bg-black/10" onClick={()=>setMenuMensagem(menuMensagem===m.id?null:m.id)}><MoreVertical className="h-3.5 w-3.5"/></button>}
                   </div>
-                  {meu && menuMensagem===m.id && <div className="absolute bottom-full right-0 z-10 mb-1 flex gap-1 rounded-lg border bg-card p-1 text-xs text-foreground shadow-lg">
+                  {meu && !m.origem_externa && menuMensagem===m.id && <div className="absolute bottom-full right-0 z-10 mb-1 flex gap-1 rounded-lg border bg-card p-1 text-xs text-foreground shadow-lg">
                     <button className="rounded px-2 py-1 hover:bg-muted" onClick={()=>{setEditando({id:m.id,texto:m.mensagem||''});setMenuMensagem(null);}}>Editar no MANU</button>
                     <button className="rounded px-2 py-1 hover:bg-muted" onClick={()=>{setMenuMensagem(null);apagar(m.id);}}>Apagar do MANU</button>
                   </div>}
-                  {editando?.id===m.id && <div className="mt-2 flex gap-1"><input className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-xs text-foreground" value={editando.texto} onChange={e=>setEditando({...editando,texto:e.target.value})}/><button onClick={salvarEdicao} className="rounded border px-2 text-xs">Salvar</button></div>}
+                  {!m.origem_externa && editando?.id===m.id && <div className="mt-2 flex gap-1"><input className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-xs text-foreground" value={editando.texto} onChange={e=>setEditando({...editando,texto:e.target.value})}/><button onClick={salvarEdicao} className="rounded border px-2 text-xs">Salvar</button></div>}
                 </div>
               </div>;
             })}

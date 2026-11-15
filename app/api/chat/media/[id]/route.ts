@@ -12,9 +12,17 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{id:string}>}
   const actor=await requireUser(req);
   if(!actor) return NextResponse.json({error:'Não autenticado'},{status:401});
   const id=Number((await params).id);
-  if(!Number.isSafeInteger(id)||id<=0)return NextResponse.json({error:'Mensagem inválida'},{status:400});
+  if(!Number.isSafeInteger(id)||id===0)return NextResponse.json({error:'Mensagem inválida'},{status:400});
   try {
-    const item=await queryOne<{lead_id:number;media_path:string;media_mime:string}>(`
+    const item= id<0 ? await queryOne<{lead_id:number;media_path:string;media_mime:string}>(`
+      SELECT l.id AS lead_id, wa.media_path, wa.media_mime
+        FROM public.aurox_wa_mensagens wa
+        JOIN public.aurox_wa_contatos c ON c.id=wa.contato_id AND c.empresa_id=wa.empresa_id
+        JOIN public.leads l ON l.empresa_id=wa.empresa_id
+        LEFT JOIN public.triagem t ON t.id=c.triagem_id AND t.empresa_id=c.empresa_id
+       WHERE wa.id=$1 AND wa.direcao='enviada' AND wa.media_path IS NOT NULL
+         AND (c.lead_id=l.id OR t.lead_id=l.id) LIMIT 1`,[-id])
+      : await queryOne<{lead_id:number;media_path:string;media_mime:string}>(`
       SELECT ch.lead_id, wa.media_path, wa.media_mime
         FROM public.chat_geral_mensagens ch
         JOIN public.leads l ON l.id=ch.lead_id
