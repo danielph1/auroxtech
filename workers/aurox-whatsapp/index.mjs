@@ -119,6 +119,15 @@ async function asVoiceOpus(bytes) {
   });
 }
 async function uploadIncomingMedia(s,msg,messageId) {
+  // Compatibilidade com mudanças de IDs no WhatsApp Web.
+  if (
+    msg.id &&
+    !msg.id._serialized &&
+    typeof msg.id['$1'] === 'string'
+  ) {
+    msg.id._serialized = msg.id['$1'];
+    console.log('[Aurox] ID de mídia normalizado');
+  }
   if(!msg.hasMedia || !['image','audio','ptt'].includes(String(msg.type||'')))return null;
   // Nao atrasar indefinidamente a triagem se o WhatsApp nao liberar a midia.
   let timer;
@@ -229,7 +238,16 @@ async function startSession(empresa_id,instancia_id) {
       let mediaInfo=null;
       if(['image','audio','ptt'].includes(String(msg.type||''))) {
         try {mediaInfo=await uploadIncomingMedia(s,msg,messageId);}
-        catch(e){console.warn(`[${empresa_id}] mídia enviada sem prévia no chat: ${e.message}`);}
+        catch (e) {
+  console.error(`[${empresa_id}] ERRO DE MIDIA`, {
+    direcao: msg.fromMe ? 'enviada' : 'recebida',
+    tipo: msg.type,
+    hasMedia: msg.hasMedia,
+    erro: String(e),
+    stack: e?.stack || '(sem stack)',
+    causa: e?.cause ? String(e.cause) : null
+  });
+}
       }
       const ev={type:'outgoing',empresa_id,instancia_id,
         message_id:messageId,chat_id:chatId,
@@ -260,7 +278,15 @@ async function startSession(empresa_id,instancia_id) {
       let mediaInfo=null;
       if(['image','audio','ptt'].includes(String(msg.type||''))) {
         try {mediaInfo=await uploadIncomingMedia(s,msg,messageId);}
-        catch(e){console.warn(`[${empresa_id}] imagem/áudio não armazenado: ${e.message}`);}
+        catch (e) {
+  console.error(`[${empresa_id}] Falha na mídia recebida`, {
+    tipo: msg.type,
+    hasMedia: msg.hasMedia,
+    erro: String(e),
+    nome: e?.name,
+    stack: e?.stack
+  });
+}
       }
       const ev={type:'message',empresa_id,instancia_id,message_id:messageId,
         chat_id:chatId,phone,name,body:placeholder(msg),message_type:String(msg.type||'chat'),
