@@ -116,3 +116,122 @@
  .aurox-login-v2 .aurox-journey-heading{align-items:flex-start;flex-direction:column;gap:4px}
 }
 @media(prefers-reduced-motion:reduce){.aurox-login-v2 *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* BEGIN AUROX LOGIN MOBILE HOTFIX 20261115 */
+/* AUROX LOGIN / MOBILE WIDTH HOTFIX - 2026-11-15
+   Escopo exclusivamente da rota /login.
+   Evita que o painel de autenticação permaneça com ~50% da largura em dispositivos móveis.
+   Não interfere em backend, sessão, autenticação ou componentes do dashboard.
+*/
+@media (max-width: 1023px) {
+  .aurox-login-root.aurox-login-v2 {
+    display: block;
+    inline-size: 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  .aurox-login-v2 .aurox-login-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    grid-template-columns: none;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+  }
+
+  .aurox-login-v2 .aurox-login-layout > .aurox-login-panel,
+  .aurox-login-v2 .aurox-login-layout > .aurox-login-story {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .aurox-login-v2 .aurox-login-layout > .aurox-login-panel {
+    order: 0;
+    position: relative;
+    top: auto;
+    min-height: min(100dvh, 690px);
+    padding: 24px clamp(18px, 5vw, 46px) 36px;
+    overflow: visible;
+    border-left: 0;
+  }
+
+  .aurox-login-v2 .aurox-login-layout > .aurox-login-story {
+    order: 1;
+    position: relative;
+    border-right: 0;
+    overflow: visible;
+  }
+
+  .aurox-login-v2 .aurox-login-toolbar {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 28px;
+  }
+
+  .aurox-login-v2 .aurox-login-form-wrap {
+    flex: 0 1 auto;
+    width: min(100%, 455px);
+    min-width: 0;
+    max-width: 455px;
+    margin: auto;
+  }
+
+  .aurox-login-v2 .aurox-login-form,
+  .aurox-login-v2 .aurox-login-field,
+  .aurox-login-v2 .aurox-login-password,
+  .aurox-login-v2 .aurox-login-field input,
+  .aurox-login-v2 .aurox-login-submit {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .aurox-login-v2 .aurox-login-form .aurox-login-submit {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .aurox-login-v2 .aurox-story-inner {
+    width: 100%;
+    min-width: 0;
+    max-width: 750px;
+    margin-inline: auto;
+  }
+  .aurox-login-v2 .aurox-story-first { width: 100%; height: auto; min-height: 0; }
+  .aurox-login-v2 .aurox-story-hero h1 { overflow-wrap: break-word; }
+}
+
+@media (max-width: 520px) {
+  .aurox-login-v2 .aurox-login-layout > .aurox-login-panel {
+    padding: 20px 20px 32px;
+    min-height: min(100dvh, 680px);
+  }
+  .aurox-login-v2 .aurox-login-toolbar { gap: 8px; }
+  .aurox-login-v2 .aurox-login-toolbar-label { font-size: 9px; }
+  .aurox-login-v2 .aurox-login-theme-switch { flex-shrink: 0; }
+  .aurox-login-v2 .aurox-login-form-wrap { width: 100%; max-width: none; }
+  .aurox-login-v2 .aurox-login-panel h2 { font-size: clamp(27px, 8vw, 34px); }
+  .aurox-login-v2 .aurox-story-inner { padding-inline: 20px; }
+  .aurox-login-v2 .aurox-story-hero h1 { font-size: clamp(33px, 9.2vw, 44px); }
+  .aurox-login-v2 .aurox-journey-track { flex-wrap: wrap; }
+  .aurox-login-v2 .aurox-journey-track i { flex: 0 0 7px; }
+  .aurox-login-v2 .aurox-story-pillar-row { gap: 6px; }
+  .aurox-login-v2 .aurox-story-pillar-row div { min-width: 0; overflow-wrap: anywhere; }
+  .aurox-login-v2 .aurox-login-legal { justify-content: center; gap: 10px 14px; }
+}
+/* END AUROX LOGIN MOBILE HOTFIX 20261115 */
