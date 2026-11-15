@@ -11,7 +11,7 @@ async function expirar(empresaId: number | null, superadmin: boolean) {
     `SELECT id,empresa_id FROM public.triagem
       WHERE status='aguardando' AND empresa_id IS NOT NULL
         AND created_at < now() -
-          (CASE WHEN origem='aurox-whatsapp' THEN interval '10 minutes'
+          (CASE WHEN origem='aurox-whatsapp' THEN interval '10 seconds'
                 ELSE interval '1 minute' END)
         AND ($1::boolean OR empresa_id=$2)
       ORDER BY created_at LIMIT 50`,[superadmin,empresaId],

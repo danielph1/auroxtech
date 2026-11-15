@@ -26,7 +26,7 @@ export default function TriagemPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-2xl font-bold">Triagem</h1>
       <p className="text-sm text-muted-foreground">
-        Leads novos. Mensagens do Aurox-WhatsApp ficam até 10 minutos na fila antes da atribuição automática; outros canais seguem o prazo de 1 minuto.
+        Leads novos. Mensagens do Aurox-WhatsApp ficam até 10 segundos na fila antes da atribuição automática; outros canais seguem o prazo de 1 minuto.
       </p>
       {(Array.isArray(data) ? data : []).length === 0 && <p className="text-muted-foreground">Nenhum lead na fila.</p>}
       {(Array.isArray(data) ? data : []).map((t: any) => (
