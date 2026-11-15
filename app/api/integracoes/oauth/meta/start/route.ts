@@ -48,11 +48,13 @@ export async function POST(req: NextRequest) {
 
   const appId = cleanAppId(env('META_APP_ID', 'FACEBOOK_APP_ID', 'NEXT_PUBLIC_META_APP_ID'));
   const appSecret = env('META_APP_SECRET', 'FACEBOOK_APP_SECRET');
+  const configId = env('META_BUSINESS_CONFIG_ID');
   const base = resolveAppUrl(req);
 
   const missing: string[] = [];
   if (!appId) missing.push('META_APP_ID (só números, sem aspas — copie em Configurações → Básico do app Meta)');
   if (!appSecret) missing.push('META_APP_SECRET');
+  if (!/^\d{6,30}$/.test(configId)) missing.push('META_BUSINESS_CONFIG_ID (ID da configuracao Login para Empresas Meta)');
   if (!base) missing.push('NEXT_PUBLIC_APP_URL');
 
   if (missing.length) {
@@ -101,28 +103,20 @@ export async function POST(req: NextRequest) {
   }
 
   const redirectUri = `${base}/api/integracoes/oauth/meta/callback`;
-  // Escopos em camadas: o mínimo funciona em modo desenvolvimento (admin/dev/tester do app).
-  // Permissões avançadas exigem produto ativo no app + (produção) App Review.
-  // Só páginas (estável). Instagram depois de FB conectar + produto Instagram no app Meta.
-  // instagram_manage_messages / pages_read_user_content quebram login se não aprovados.
-  const scope = [
-    'pages_show_list',
-    'pages_read_engagement',
-    'pages_manage_metadata',
-    'pages_messaging',
-    'leads_retrieval',
-  ].join(',');
-
+  // O Facebook Login para Empresas utiliza as permissoes cadastradas no config_id.
+  // O authorization code sera trocado pelo token somente no servidor.
   const authUrl =
     `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&state=${encodeURIComponent(state)}` +
-    `&scope=${encodeURIComponent(scope)}` +
-    `&response_type=code`;
+    `&config_id=${encodeURIComponent(configId)}` +
+    `&response_type=code` +
+    `&override_default_response_type=true` +
+    `&display=page`;
 
   return NextResponse.json({
     auth_url: authUrl,
     redirect_uri: redirectUri,
-    code_version: 'v133',
+    code_version: 'aurox-business-login-v1',
   });
 }
