@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { gestorIntegracoes, escopoEmpresa } from '@/lib/integracoes/auth';
 import { queryOne } from '@/lib/db';
-import { randomBytes, createHmac } from 'node:crypto';
+import { randomBytes, createHmac, createHash } from 'node:crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,14 +67,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const nonce = randomBytes(24).toString('hex');
   const statePayload = JSON.stringify({
     e: empresaId,
     u: actor.id,
-    n: randomBytes(8).toString('hex'),
+    n: nonce,
     t: Date.now(),
   });
   const sig = createHmac('sha256', appSecret).update(statePayload).digest('hex').slice(0, 16);
   const state = Buffer.from(statePayload).toString('base64url') + '.' + sig;
+
+  try {
+    await queryOne(
+      `INSERT INTO public.aurox_meta_oauth_states (nonce_hash, empresa_id, usuario_id, expires_at)
+       VALUES ($1,$2,$3,now() + interval '15 minutes') RETURNING nonce_hash`,
+      [createHash('sha256').update(nonce).digest('hex'), empresaId, actor.id],
+    );
+  } catch (e) {
+    console.error('[meta/oauth] falha ao registrar nonce');
+    return NextResponse.json({ error: 'Banco de estados OAuth não disponível. Execute a migration antes de conectar.' }, { status: 503 });
+  }
 
   try {
     await queryOne(
@@ -98,6 +110,7 @@ export async function POST(req: NextRequest) {
     'pages_read_engagement',
     'pages_manage_metadata',
     'pages_messaging',
+    'leads_retrieval',
   ].join(',');
 
   const authUrl =

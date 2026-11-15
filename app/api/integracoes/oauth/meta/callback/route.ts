@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/lib/db';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual, randomUUID } from 'node:crypto';
+import { encryptMetaToken } from '@/lib/integracoes/meta-token-crypto';
 import { gerarToken, hashToken, urlWebhook } from '@/lib/integracoes/helpers';
 
 export const runtime = 'nodejs';
@@ -14,7 +15,7 @@ function appBase() {
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : '') ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
-    'https://manu-manu-automoveis.vercel.app';
+    'https://auroxtech.vercel.app';
   const base = appUrl.replace(/\/$/, '');
   return base.startsWith('http') ? base : `https://${base}`;
 }
@@ -52,15 +53,36 @@ export async function GET(req: NextRequest) {
       return fail('state_decode');
     }
     const expect = createHmac('sha256', appSecret).update(statePayload).digest('hex').slice(0, 16);
-    if (expect !== sig) return fail('state_assinatura');
+    const sigA = Buffer.from(expect, 'hex');
+    const sigB = /^[0-9a-f]{16}$/i.test(sig) ? Buffer.from(sig, 'hex') : Buffer.alloc(0);
+    if (sigA.length !== sigB.length || !timingSafeEqual(sigA, sigB)) return fail('state_assinatura');
 
-    let st: { e: number; u: number; t: number };
+    let st: { e: number; u: number; t: number; n: string };
     try {
       st = JSON.parse(statePayload);
     } catch {
       return fail('state_json');
     }
-    if (Date.now() - Number(st.t || 0) > 20 * 60 * 1000) return fail('state_expirado');
+    if (!Number.isSafeInteger(Number(st.e)) || !Number.isSafeInteger(Number(st.u)) ||
+        !/^[0-9a-f]{48}$/.test(String(st.n || '')) ||
+        Date.now() - Number(st.t || 0) > 15 * 60 * 1000 || Number(st.t) > Date.now() + 60_000) return fail('state_invalido_ou_expirado');
+
+    // Consome state UMA VEZ, valida ator ativo e empresa autorizada no PostgreSQL.
+    const nonceHash = createHash('sha256').update(st.n).digest('hex');
+    const validState = await queryOne<{ nonce_hash: string }>(
+      `UPDATE public.aurox_meta_oauth_states s SET consumed_at=now()
+       WHERE s.nonce_hash=$1 AND s.empresa_id=$2 AND s.usuario_id=$3
+         AND s.consumed_at IS NULL AND s.expires_at>now()
+         AND EXISTS (SELECT 1 FROM public.usuarios u
+             LEFT JOIN public.empresas e ON e.id=s.empresa_id
+             WHERE u.id=s.usuario_id AND u.ativo IS TRUE
+               AND LOWER(COALESCE(u.status,'ativo'))='ativo'
+               AND LOWER(TRIM(u.tipo)) IN ('admin','marketing','superadmin')
+               AND e.id IS NOT NULL AND e.ativo IS TRUE
+               AND (LOWER(TRIM(u.tipo))='superadmin' OR u.empresa_id=s.empresa_id))
+       RETURNING s.nonce_hash`, [nonceHash, st.e, st.u],
+    );
+    if (!validState) return fail('state_ja_usado_ou_sem_permissao');
 
     const redirectUri = `${base}/api/integracoes/oauth/meta/callback`;
     const tokenRes = await fetch(
@@ -100,8 +122,11 @@ export async function GET(req: NextRequest) {
       return fail('nenhuma_pagina:selecione a Pagina no login Meta ou crie uma Pagina');
     }
 
+    // Não escolhe silenciosamente a primeira Página quando a conta possui várias.
+    if (pages.length !== 1) return fail('multiplas_paginas:selecao_de_pagina_necessaria');
     const page = pages[0];
-    const pageToken = page.access_token;
+    if (!page.access_token) return fail('pagina_sem_token');
+    const pageToken = encryptMetaToken(page.access_token);
     const pageId = String(page.id);
     const pageName = String(page.name || 'Pagina');
     // A mesma Página não pode alimentar duas empresas do MANU.
@@ -219,13 +244,12 @@ export async function GET(req: NextRequest) {
       const fields = [
         'messages',
         'messaging_postbacks',
-        'messaging_optins',
-        'message_deliveries',
-        'feed',
         'leadgen',
+        'messages',
+        'messaging_postbacks',
       ].join(',');
       const subscribed = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps?subscribed_fields=${fields}&access_token=${encodeURIComponent(pageToken)}`,
+        `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps?subscribed_fields=${fields}&access_token=${encodeURIComponent(page.access_token)}`,
         { method: 'POST' },
       );
       if (!subscribed.ok) {
