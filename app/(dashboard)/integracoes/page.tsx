@@ -216,6 +216,16 @@ export default function IntegracoesPage() {
       </div>
 
       <div className="studio-integration-grid">
+        {/* WhatsApp AUROX: QR próprio, totalmente independente da Z-API. */}
+        <div className="studio-integration-wide" data-aurox-whatsapp="proprio">
+          <AuroxWhatsappConnect empresaId={empresa} />
+        </div>
+
+        {/* WhatsApp oficial Meta: outro canal, sem alterar o QR próprio. */}
+        <div className="studio-integration-wide" data-aurox-whatsapp="meta">
+          <MetaEmbeddedSignup empresaId={empresa} onConnected={() => atualizarConexoes()} />
+        </div>
+
         {/* Meta OAuth */}
         <button
           type="button"
