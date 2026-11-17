@@ -2,6 +2,7 @@
 // Novo lead - formulario completo com todos os campos da ficha quando marca "gerar ficha"
 import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -80,6 +81,7 @@ export default function NovoLeadPage() {
       <AuroxModalBase wide title="Cadastrar lead" subtitle="Preencha os dados necessários. Os campos da ficha permanecem disponíveis ao gerar crédito." onClose={()=>router.push('/inicio')}>
       <Card className="studio-lead-form-card">
         <CardContent className="studio-lead-form-content">
+          <div className="mb-4 flex justify-end"><Link href="/importacoes/planilhas" className="rounded-lg border border-primary/60 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10">Importar leads por planilha</Link></div>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect, useState } from 'react';
 
@@ -20,7 +21,7 @@ export default function TriagemPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-2xl font-bold">Triagem</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h1 className="text-2xl font-bold">Triagem</h1><Link href="/importacoes/planilhas" className="rounded-lg border border-primary/50 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10">Importar leads por planilha</Link></div>
       <p className="text-sm text-muted-foreground">
         Leads novos. Mensagens do Aurox-WhatsApp ficam até 10 segundos na fila antes da atribuição automática; outros canais seguem o prazo de 1 minuto.
       </p>

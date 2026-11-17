@@ -238,7 +238,7 @@ export default function EstoquePage() {
         <p className="mt-1 text-sm text-muted-foreground">
           {t('page.estoque.sub')}
         </p><div className="studio-vehicle-count"><strong>{lista.length}</strong> veículo(s) próprio(s) neste filtro</div></div>
-        {canEdit&&<button type="button" className="studio-btn primary" onClick={()=>setNovoAberto(true)}>+ Adicionar veículo</button>}
+        {canEdit&&<div className="flex flex-wrap items-center gap-2"><Link href="/importacoes/planilhas?tipo=veiculos" className="rounded-xl border border-primary/50 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10">Importar planilha / fotos do Drive</Link><button type="button" className="studio-btn primary" onClick={()=>setNovoAberto(true)}>+ Adicionar veículo</button></div>}
       </header>
 
       {canEdit && novoAberto && (
