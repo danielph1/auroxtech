@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { ClipboardList } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,7 @@ export default function AuroxPage(){
  if(!isSuper)return <main className="aurox-gestao-v4"><div className="aurox-v4-denied"><ShieldCheck size={27}/><h1>Área administrativa Aurox</h1><p>Esta seção está disponível exclusivamente para o superadmin da plataforma.</p><Link href="/inicio">Voltar à Visão Geral</Link></div></main>;
  return <main className="aurox-gestao-v4">
   <header className="aurox-v4-head"><div><div className="aurox-v4-eyebrow"><ShieldCheck size={14}/> ADMINISTRAÇÃO DA PLATAFORMA</div><h1>Gestão Aurox</h1><p>Contratos, concessionárias, lojas e acesso em um painel reservado à plataforma.</p></div>
-   <Button type="button" onClick={()=>setOpenNovo(true)}><Plus size={17}/> Nova empresa</Button>
+   <div className="ax-sales-admin-actions"><Link className="ax-sales-admin-link" href="/aurox/comercial"><ClipboardList size={16}/> Comercial AUROX</Link><Button type="button" onClick={()=>setOpenNovo(true)}><Plus size={17}/> Nova empresa</Button></div>
   </header>
   <section className="aurox-v4-summary" aria-label="Resumo da plataforma">
    <div><span className="aurox-v4-summary-icon"><Building2 size={20}/></span><small>Empresas cadastradas</small><strong>{empresasQ.isLoading?'…':resumo.total}</strong><span>Contratos registrados</span></div>

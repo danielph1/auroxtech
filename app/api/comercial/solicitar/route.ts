@@ -31,12 +31,12 @@ export async function POST(req:NextRequest){
     if(!Array.isArray(b.modulos)||b.modulos.length>20)return reply({error:'Módulos inválidos'},400);
     const validIds=new Set(AUROX_MODULOS_PUBLICOS.map(x=>x.id));
     const modulos=Array.from(new Set(b.modulos.filter((x:unknown):x is string=>typeof x==='string'&&validIds.has(x))));
-    const numeros=Number(b.numerosWhatsApp||1);
-    if(!Number.isInteger(numeros)||numeros<1||numeros>30)return reply({error:'Quantidade de WhatsApps inválida'},400);
-    const cotacao=cotarAurox(modulos,numeros);
-    // Não permitir forjar o destinatário a partir do formulário público.
-    const destino=Number(process.env.AUROX_COMERCIAL_EMPRESA_ID);
-    if(!Number.isSafeInteger(destino)||destino<1){console.error('[comercial] AUROX_COMERCIAL_EMPRESA_ID ausente');return reply({error:'Atendimento comercial temporariamente indisponível'},503);}
+    // Oferta atual: um WhatsApp por empresa, sem seleção pública de quantidades.
+    // Rejeita cargas antigas/manipuladas que tentam comprar números extras.
+    if(b.numerosWhatsApp !== undefined && b.numerosWhatsApp !== 1)
+      return reply({error:'O simulador oferece somente uma conexão de WhatsApp por empresa.'},400);
+    const numeros=1;
+    const cotacao=cotarAurox(modulos);
     const key=process.env.JWT_SECRET;
     if(!key||key.length<32){console.error('[comercial] JWT_SECRET insuficiente');return reply({error:'Atendimento comercial temporariamente indisponível'},503);}
     const ip=(req.headers.get('x-vercel-forwarded-for')||req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim().slice(0,80);
@@ -48,8 +48,12 @@ export async function POST(req:NextRequest){
       // Serializa solicitações do mesmo telefone para evitar duplicações concorrentes.
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`aurox-lead-comercial-ip:${ipHash}`]);
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`aurox-lead-comercial-tel:${telefoneHash}`]);
-      const emp=await db.query('SELECT id FROM public.empresas WHERE id=$1 AND COALESCE(ativo,TRUE)',[destino]);
-      if(!emp.rowCount){await db.query('ROLLBACK');return reply({error:'Empresa comercial não configurada ou inativa'},503);}
+      // Destino interno imutável: jamais usar empresa_id controlado pelo visitante.
+      // A migração 005 cria esta empresa e impede que usuários normais entrem nela.
+      const emp=await db.query(`SELECT id FROM public.empresas
+        WHERE slug='aurox-plataforma' AND LOWER(BTRIM(nome))='aurox' AND COALESCE(ativo,TRUE) LIMIT 1`);
+      const destino=Number(emp.rows[0]?.id);
+      if(!Number.isSafeInteger(destino)||destino<1){await db.query('ROLLBACK');return reply({error:'Atendimento comercial temporariamente indisponível'},503);}
       const recent=await db.query(`SELECT 1 FROM public.aurox_solicitacoes_comerciais
         WHERE empresa_id=$1 AND telefone_hash=$2 AND criado_em>now()-interval '15 minutes' LIMIT 1`,[destino,telefoneHash]);
       if(recent.rowCount){await db.query('COMMIT');return reply({ok:true,duplicado:true});}
@@ -58,7 +62,7 @@ export async function POST(req:NextRequest){
       if(Number(count.rows[0]?.total||0)>=5){await db.query('ROLLBACK');return reply({error:'Muitas solicitações. Tente novamente mais tarde.'},429);}
       const interesse='Solicitação de implantação AUROX';
       const mensagem=[`Empresa: ${empresa}`,`Responsável: ${nome}`,`Localização: ${cidade}/${uf}`,
-        `Pacote: ${modulos.join(', ')||'Somente base'}`,`WhatsApps: ${modulos.includes('whatsapp')?numeros:0}`,
+        `Pacote: ${modulos.join(', ')||'Somente base'}`,`Aurox-WhatsApp: ${modulos.includes('whatsapp')?'1 conexão prevista':'não selecionado'}`,
         `Mensalidade estimada: R$ ${(cotacao.normalCentavos/100).toFixed(2)}`,
         `Primeiro mês estimado: R$ ${(cotacao.primeiroMesCentavos/100).toFixed(2)}`,
         observacao?`Observações: ${observacao}`:'',

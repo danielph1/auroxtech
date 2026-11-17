@@ -1,0 +1,35 @@
+'use client';
+import {useEffect,useMemo,useState} from 'react';
+import Link from 'next/link';
+import {useAuth} from '@/contexts/auth-context';
+import {api} from '@/lib/api';
+import {toast} from 'sonner';
+import {ArrowLeft,Building2,ClipboardList,Clock3,MessageCircle,Phone,RefreshCw,ShieldCheck,CheckCircle2} from 'lucide-react';
+import './comercial.css';
+
+type Status='novo'|'em_atendimento'|'concluido'|'descartado';
+type Solicitacao={id:number;nome_empresa:string;nome_responsavel:string;telefone:string;cidade:string;uf:string;modulos:string[];mensalidade_centavos:number;primeiro_mes_centavos:number;observacao:string;status:Status;anotacoes_internas:string;criado_em:string;atualizado_em:string;triagem_id:number};
+const statuses:{v:Status;l:string}[]=[{v:'novo',l:'Novo'},{v:'em_atendimento',l:'Em atendimento'},{v:'concluido',l:'Concluído'},{v:'descartado',l:'Descartado'}];
+const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n/100);
+const when=(s:string)=>new Date(s).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'});
+export default function ComercialAuroxPage(){
+ const {user}=useAuth();const autorizado=String(user?.tipo||'').toLowerCase()==='superadmin';
+ const [rows,setRows]=useState<Solicitacao[]>([]);const [loading,setLoading]=useState(false);const [saving,setSaving]=useState(false);
+ const [filtro,setFiltro]=useState('todos');const [busca,setBusca]=useState('');const [selected,setSelected]=useState<number|null>(null);
+ const [draft,setDraft]=useState({status:'novo' as Status,anotacoes_internas:''});
+ async function carregar(){if(!autorizado)return;setLoading(true);try{const r=await api.get('/aurox/comercial/solicitacoes',{params:{status:filtro}});setRows(r.data.solicitacoes||[])}catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível carregar solicitações')}finally{setLoading(false)}}
+ useEffect(()=>{void carregar()},[autorizado,filtro]); // Permissão também é conferida no backend.
+ const lista=useMemo(()=>rows.filter(s=>[s.nome_empresa,s.nome_responsavel,s.telefone,s.cidade,s.uf].join(' ').toLowerCase().includes(busca.trim().toLowerCase())),[rows,busca]);
+ const registro=rows.find(x=>x.id===selected)||null;
+ function selecionar(s:Solicitacao){setSelected(s.id);setDraft({status:s.status,anotacoes_internas:s.anotacoes_internas||''})}
+ async function salvar(){if(!registro)return;setSaving(true);try{await api.patch('/aurox/comercial/solicitacoes',{id:registro.id,...draft});toast.success('Atendimento atualizado');await carregar()}catch(e:any){toast.error(e?.response?.data?.error||'Não foi possível salvar')}finally{setSaving(false)}}
+ if(!autorizado)return <section className="ax-sales-page"><div className="ax-sales-denied"><ShieldCheck size={29}/><h1>Área restrita à AUROX</h1><p>Apenas o superadmin pode acessar as solicitações da plataforma.</p><Link href="/inicio">Voltar ao painel</Link></div></section>;
+ return <main className="ax-sales-page">
+  <header className="ax-sales-top"><div><Link href="/aurox" className="ax-sales-back"><ArrowLeft size={16}/> Gestão Aurox</Link><span className="ax-sales-kicker">COMERCIAL INTERNO · EXCLUSIVO SUPERADMIN</span><h1>Novas oportunidades AUROX</h1><p>Empresas interessadas em contratar a plataforma. Os dados das concessionárias permanecem separados.</p></div><button type="button" onClick={()=>void carregar()} disabled={loading}><RefreshCw size={16}/>{loading?'Atualizando…':'Atualizar'}</button></header>
+  <div className="ax-sales-stats"><div><ClipboardList size={19}/><span>Solicitações exibidas</span><strong>{rows.length}</strong></div><div><Clock3 size={19}/><span>Aguardando contato</span><strong>{rows.filter(x=>x.status==='novo').length}</strong></div><div><MessageCircle size={19}/><span>Em atendimento</span><strong>{rows.filter(x=>x.status==='em_atendimento').length}</strong></div><div><CheckCircle2 size={19}/><span>Concluídas</span><strong>{rows.filter(x=>x.status==='concluido').length}</strong></div></div>
+  <div className="ax-sales-workspace"><section className="ax-sales-list"><div className="ax-sales-filters"><input type="search" placeholder="Pesquisar concessionária, responsável ou telefone" value={busca} onChange={e=>setBusca(e.target.value)} aria-label="Pesquisar solicitações"/><select aria-label="Filtrar por status" value={filtro} onChange={e=>{setFiltro(e.target.value);setSelected(null)}}><option value="todos">Todos os status</option>{statuses.map(s=><option key={s.v} value={s.v}>{s.l}</option>)}</select></div>
+   {lista.length?lista.map(s=><button key={s.id} type="button" className={`ax-sales-item ${selected===s.id?'active':''}`} onClick={()=>selecionar(s)}><div className="ax-sales-item-top"><strong><Building2 size={16}/>{s.nome_empresa}</strong><small className={'ax-sales-status '+s.status}>{statuses.find(x=>x.v===s.status)?.l}</small></div><p>{s.nome_responsavel} · {s.cidade}/{s.uf}</p><div className="ax-sales-item-foot"><span>{when(s.criado_em)}</span><b>{money(s.mensalidade_centavos)}/mês</b></div></button>):<div className="ax-sales-empty">{loading?'Carregando…':'Nenhuma solicitação encontrada neste filtro.'}</div>}
+  </section>
+  <section className="ax-sales-detail">{registro?<><span className="ax-sales-kicker">SOLICITAÇÃO #{registro.id}</span><h2>{registro.nome_empresa}</h2><p>Responsável: <strong>{registro.nome_responsavel}</strong></p><p>Localização: <strong>{registro.cidade}/{registro.uf}</strong></p><a className="ax-sales-phone" href={`tel:${registro.telefone}`}><Phone size={17}/>{registro.telefone}</a><div className="ax-sales-quote"><span>Mensalidade simulada</span><strong>{money(registro.mensalidade_centavos)}</strong><small>Primeiro mês estimado: {money(registro.primeiro_mes_centavos)}</small></div><h3>Módulos de interesse</h3><div className="ax-sales-tags">{(registro.modulos||[]).length?registro.modulos.map(x=><span key={x}>{x}</span>):<span>AUROX Base</span>}</div><h3>Mensagem da empresa</h3><p className="ax-sales-observacao">{registro.observacao||'Não informou observações adicionais.'}</p><div className="ax-sales-editor"><label htmlFor="ax-sales-status">Status do atendimento</label><select id="ax-sales-status" value={draft.status} onChange={e=>setDraft(p=>({...p,status:e.target.value as Status}))}>{statuses.map(x=><option key={x.v} value={x.v}>{x.l}</option>)}</select><label htmlFor="ax-sales-notes">Observações internas</label><textarea id="ax-sales-notes" rows={5} maxLength={4000} value={draft.anotacoes_internas} onChange={e=>setDraft(p=>({...p,anotacoes_internas:e.target.value}))} placeholder="Registre a proposta, retorno e próximos passos."/><button type="button" disabled={saving} onClick={()=>void salvar()}>{saving?'Salvando…':'Salvar atendimento'}</button><small>Exclusivo do superadmin. Nenhuma conta é criada automaticamente.</small></div></>:<div className="ax-sales-empty"><ClipboardList size={34}/><h3>Selecione uma solicitação</h3><p>Você poderá consultar os dados, contatar o responsável e registrar o andamento comercial.</p></div>}</section></div>
+ </main>;
+}

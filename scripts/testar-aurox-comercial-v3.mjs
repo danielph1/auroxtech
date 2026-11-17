@@ -1,0 +1,16 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,join} from 'node:path';
+import {AUROX_MODULOS_PUBLICOS,cotarAurox} from '../lib/aurox-precos-publicos.ts';
+const root=join(dirname(fileURLToPath(import.meta.url)),'..');
+const read=p=>readFileSync(join(root,p),'utf8');
+test('AUROX Base 149 sem desconto',()=>assert.deepEqual(cotarAurox([]),{normalCentavos:14900,primeiroMesCentavos:14900,economiaCentavos:0,elegivelPromocao:false}));
+test('R$500 exatos não ativam a promoção',()=>{const t=cotarAurox(['crm','financeiro']);assert.equal(t.normalCentavos,47700);assert.equal(t.elegivelPromocao,false)});
+test('Mensalidade R$596: 25% no primeiro mês',()=>{const t=cotarAurox(['crm','financeiro','site']);assert.equal(t.normalCentavos,59600);assert.equal(t.economiaCentavos,14900);assert.equal(t.primeiroMesCentavos,44700)});
+test('Desconto limitado a R$180',()=>{const t=cotarAurox(AUROX_MODULOS_PUBLICOS.map(m=>m.id));assert.equal(t.economiaCentavos,18000)});
+test('Sem opções de múltiplos números de WhatsApp no site',()=>{const ui=read('app/login/page.tsx');const modal=read('components/aurox-solicitar-implantacao.tsx');assert.ok(!ui.includes('numerosWhatsApp'));assert.ok(!modal.includes('numerosWhatsApp'))});
+test('API rejeita quantidades adicionais',()=>{const api=read('app/api/comercial/solicitar/route.ts');assert.ok(api.includes('b.numerosWhatsApp !== undefined && b.numerosWhatsApp !== 1'));assert.ok(api.includes("slug='aurox-plataforma'"))});
+test('API de atendimento exige superadmin',()=>{const api=read('app/api/aurox/comercial/solicitacoes/route.ts');assert.ok(api.includes('isSuperAdmin(user)'));assert.ok(api.includes("e.slug='aurox-plataforma'"))});
+test('Sem consultas ao banco no catálogo público',()=>{const s=read('lib/aurox-precos-publicos.ts');assert.ok(!s.includes('getPool'));assert.ok(!s.includes('fetch('))});

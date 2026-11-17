@@ -1,47 +1,43 @@
 'use client';
 
-import {useEffect, useMemo, useState, type FormEvent} from 'react';
+import {useEffect,useMemo,useState,type FormEvent} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import {ArrowLeft,ArrowRight,Check,CheckCircle2,Eye,EyeOff,LockKeyhole,Moon,ShieldCheck,Sun,ChevronDown} from 'lucide-react';
+import {
+  ArrowLeft,ArrowRight,Check,CheckCircle2,Eye,EyeOff,LockKeyhole,Moon,ShieldCheck,Sun,
+  Building2,CarFront,MessageSquareText,UsersRound,ChartNoAxesCombined,Layers3,
+  Handshake,Wallet,ArrowUpRight,Globe2,Sparkles,ChevronDown,MousePointerClick,
+} from 'lucide-react';
 import {toast} from 'sonner';
 import {useAuth} from '@/contexts/auth-context';
 import {useTema} from '@/contexts/theme-context';
 import {AuroxPulseLoader} from '@/components/aurox-pulse-loader';
 import {AuroxSolicitarImplantacao} from '@/components/aurox-solicitar-implantacao';
-import {
-  AUROX_MODULOS_PUBLICOS, AUROX_NUMEROS_MAX_SIMULADOR,
-  AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS,cotarAurox,reais,
-} from '@/lib/aurox-precos-publicos';
+import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais} from '@/lib/aurox-precos-publicos';
 import './aurox-precos-login.css';
 
-function dataHoje():string{
- const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-/** Apenas uma simulação de prazo; contratos reais serão registrados no backend. */
-function diasPromocionais(inicio:string):number{
- const m=/^(\d{4})-(\d\d)-(\d\d)$/.exec(inicio);if(!m)return 0;
- const y=Number(m[1]),mes=Number(m[2]),d=Number(m[3]);
- const start=new Date(y,mes-1,d);if(start.getFullYear()!==y||start.getMonth()!==mes-1||start.getDate()!==d)return 0;
- const ultimoDiaMesSeguinte=new Date(y,mes+1,0).getDate();
- const end=new Date(y,mes,Math.min(d,ultimoDiaMesSeguinte));const hoje=new Date();hoje.setHours(0,0,0,0);
- if(hoje<start)return Math.max(0,Math.ceil((end.getTime()-start.getTime())/86400000));
- return Math.max(0,Math.ceil((end.getTime()-hoje.getTime())/86400000));
-}
+const modulosIcones:Record<string,typeof CarFront>={
+ crm:MessageSquareText,financeiro:Wallet,anuncios:Globe2,whatsapp:MessageSquareText,
+ oficina:CarFront,inteligencia:ChartNoAxesCombined,parceiros:Handshake,site:Globe2,
+};
+const recursos=[
+ {icon:MessageSquareText,titulo:'Leads do início ao fechamento',texto:'Triagem, conversas, tarefas e follow-up organizados para a equipe trabalhar com contexto.',status:'Disponível no CRM'},
+ {icon:CarFront,titulo:'Estoque e operação',texto:'Veículos, preparação, documentação e informações comerciais em um só fluxo.',status:'Operação centralizada'},
+ {icon:UsersRound,titulo:'Equipe e permissões',texto:'Cada profissional enxerga apenas o que seu papel e sua concessionária permitem.',status:'Separação por empresa'},
+ {icon:ChartNoAxesCombined,titulo:'Visão comercial',texto:'Acompanhe oportunidades, resultados e gargalos. Indicadores avançados seguem em evolução.',status:'Métricas em evolução'},
+];
 export default function LoginPage(){
  const {login,isAuthenticated}=useAuth();const {tema,setTema}=useTema();
  const claro=tema==='claro'||tema==='cristal';const router=useRouter();
- const [tela,setTela]=useState<'precos'|'entrar'>('precos');
+ const [tela,setTela]=useState<'site'|'entrar'>('site');
  const [solicitar,setSolicitar]=useState(false);
  const [loading,setLoading]=useState(false);const [mostrar,setMostrar]=useState(false);
  const [form,setForm]=useState({login:'',senha:''});
  const [modulos,setModulos]=useState<string[]>(['crm','financeiro']);
- const [numerosWhatsApp,setNumerosWhatsApp]=useState(1);
- const [inicioSimulado,setInicioSimulado]=useState(dataHoje);
- const cotacao=useMemo(()=>cotarAurox(modulos,numerosWhatsApp),[modulos,numerosWhatsApp]);
- const diasRestantes=diasPromocionais(inicioSimulado);
- useEffect(()=>{if(isAuthenticated)router.replace('/inicio');},[isAuthenticated,router]);
+ const cotacao=useMemo(()=>cotarAurox(modulos),[modulos]);
+ useEffect(()=>{if(isAuthenticated)router.replace('/inicio')},[isAuthenticated,router]);
  const alternar=(id:string)=>setModulos(p=>p.includes(id)?p.filter(v=>v!==id):[...p,id]);
+ const navegar=(id:string)=>{setTela('site');requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'}))};
  async function entrar(e:FormEvent){
   e.preventDefault();if(!form.login.trim()||!form.senha){toast.error('Informe seu login e senha.');return;}
   setLoading(true);
@@ -51,55 +47,82 @@ export default function LoginPage(){
  }
  return <main className={`ax-market ${claro?'ax-market-light':'ax-market-dark'}`}>
   <header className="ax-market-header">
-    <Link className="ax-market-brand" href="/login" aria-label="AUROX, início"><img src="/aurox-logo.png" alt="" width="34" height="34"/><span>AUROX <small>GESTÃO AUTOMOTIVA</small></span></Link>
-    <div className="ax-market-actions">
-      <button type="button" className="ax-market-theme" onClick={()=>setTema(claro?'escuro':'claro')} aria-label={claro?'Ativar tema escuro':'Ativar tema claro'}>{claro?<Moon size={17}/>:<Sun size={17}/>}</button>
-      <button type="button" className="ax-market-loginbtn" onClick={()=>setTela(v=>v==='entrar'?'precos':'entrar')}>
-       {tela==='entrar'?<><ArrowLeft size={17}/> Ver planos</>:<><LockKeyhole size={16}/> Entrar no AUROX</>}
-      </button>
-    </div>
+   <Link className="ax-market-brand" href="/login" onClick={e=>{if(tela==='entrar'){e.preventDefault();setTela('site')}}} aria-label="AUROX, página inicial"><img src="/aurox-logo.png" alt="" width="38" height="38"/><span>AUROX <small>GESTÃO AUTOMOTIVA</small></span></Link>
+   <nav className="ax-market-nav" aria-label="Navegação da apresentação">
+    <button type="button" onClick={()=>navegar('ax-recursos')}>Plataforma</button>
+    <button type="button" onClick={()=>navegar('ax-planos')}>Planos</button>
+   </nav>
+   <div className="ax-market-actions">
+    <button type="button" className="ax-market-theme" onClick={()=>setTema(claro?'escuro':'claro')} aria-label={claro?'Ativar tema escuro':'Ativar tema claro'}>{claro?<Moon size={17}/>:<Sun size={17}/>}</button>
+    <button type="button" className="ax-market-loginbtn" onClick={()=>setTela(v=>v==='entrar'?'site':'entrar')}>{tela==='entrar'?<><ArrowLeft size={16}/> Ver apresentação</>:<><LockKeyhole size={16}/> Entrar no AUROX</>}</button>
+   </div>
   </header>
   {tela==='entrar' ? <section className="ax-market-auth" aria-label="Acessar minha conta">
-   <span className="ax-market-kicker"><ShieldCheck size={15}/> ACESSO RESTRITO</span>
-   <h1>Bem-vindo de volta.</h1><p>Entre na sua conta para continuar sua operação.</p>
+   <span className="ax-market-kicker"><ShieldCheck size={15}/> ACESSO À PLATAFORMA</span>
+   <h1>Bem-vindo de volta.</h1><p>Acesse sua operação com segurança.</p>
    <form onSubmit={entrar} className="ax-market-auth-form">
     <label htmlFor="ax-user">Usuário</label><input id="ax-user" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={form.login} placeholder="Seu login" onChange={e=>setForm(p=>({...p,login:e.target.value}))}/>
     <label htmlFor="ax-password">Senha</label><div className="ax-market-password"><input id="ax-password" type={mostrar?'text':'password'} autoComplete="current-password" required value={form.senha} placeholder="Sua senha" onChange={e=>setForm(p=>({...p,senha:e.target.value}))}/><button type="button" onClick={()=>setMostrar(v=>!v)} aria-label={mostrar?'Ocultar senha':'Mostrar senha'}>{mostrar?<EyeOff size={19}/>:<Eye size={19}/>}</button></div>
     <button disabled={loading} type="submit" className="ax-market-primary">{loading?<><AuroxPulseLoader inline/> Autenticando…</>:<>Acessar AUROX <ArrowRight size={18}/></>}</button>
    </form>
    <div className="ax-market-auth-bottom"><CheckCircle2 size={15}/> Ambiente exclusivo para usuários autorizados</div>
-   <button className="ax-market-link-button" type="button" onClick={()=>setTela('precos')}>Conhecer planos e serviços</button>
-  </section> : <section className="ax-market-content" aria-label="Simulador comercial AUROX">
-    <div className="ax-market-intro">
-      <span className="ax-market-kicker">TECNOLOGIA PARA QUEM VENDE VEÍCULOS</span>
-      <h1>Mais vendas.<br/><em>Menos complicação.</em></h1>
-      <p>Escolha os módulos que fazem sentido para a sua concessionária. Veja os valores antes de contratar, sem cadastro e sem compromisso.</p>
-      <div className="ax-market-points"><span><Check size={15}/> Estoque e equipe</span><span><Check size={15}/> Módulos independentes</span><span><Check size={15}/> Preço transparente</span></div>
-      <div className="ax-market-promo-info"><strong>Condição de boas-vindas</strong><p>Mensalidades <b>acima de R$ 500</b> recebem <b>25% de desconto no primeiro mês, limitado a R$ 180</b>. A partir do segundo mês, vale o preço integral contratado.</p></div>
+   <button className="ax-market-link-button" type="button" onClick={()=>setTela('site')}>Conhecer a plataforma e os valores</button>
+  </section> : <>
+   <section className="ax-market-hero" aria-label="Conheça a AUROX">
+    <div className="ax-market-hero-copy">
+     <span className="ax-market-kicker"><span className="ax-market-kicker-line"/> SUA REVENDA, MAIS INTELIGENTE</span>
+     <h1>O próximo nível da <em>gestão automotiva.</em></h1>
+     <p>Do primeiro contato à venda. O AUROX reúne estoque, atendimento, equipe e gestão em um único ambiente — pensado para quem vive o dia a dia da concessionária.</p>
+     <div className="ax-market-hero-actions"><button type="button" className="ax-market-primary" onClick={()=>navegar('ax-recursos')}>Descobrir o AUROX <ArrowRight size={18}/></button><button type="button" className="ax-market-outline" onClick={()=>navegar('ax-planos')}>Ver planos e valores</button></div>
+     <div className="ax-market-hero-proof"><span><ShieldCheck size={16}/> Dados separados por empresa</span><span><Layers3 size={16}/> Módulos sob medida</span></div>
     </div>
-    <div className="ax-market-calculator">
-     <div className="ax-market-calc-head"><div><span className="ax-market-kicker">MONTE SEU PACOTE</span><h2>Simule sua assinatura</h2></div><span className="ax-market-calc-pill">Mensal</span></div>
-     <div className="ax-market-base"><span><b>AUROX Base</b><small>Estoque, cadastro de veículos e equipe</small></span><strong>{reais(14900)}</strong></div>
-     <div className="ax-market-list" role="group" aria-label="Módulos adicionais">
-       {AUROX_MODULOS_PUBLICOS.map(m=><label key={m.id} className={`ax-market-option ${modulos.includes(m.id)?'is-selected':''}`}>
-        <input type="checkbox" checked={modulos.includes(m.id)} onChange={()=>alternar(m.id)}/><span className="ax-market-check" aria-hidden="true">{modulos.includes(m.id)&&<Check size={13}/>}</span>
-        <span className="ax-market-option-copy"><strong>{m.nome}{m.estado!=='disponivel'&&<small className="ax-market-preview-tag">{m.estado==='previsto'?'Em breve':'Em implantação'}</small>}</strong><small>{m.descricao}</small></span>
+    <div className="ax-market-hero-visual" aria-label="Ilustração conceitual do painel AUROX">
+     <div className="ax-market-window"><div className="ax-market-window-bar"><span className="ax-market-dot-cluster"><i/><i/><i/></span><span>AUROX / Visão operacional</span><span className="ax-market-window-mark">VISÃO ILUSTRATIVA</span></div>
+      <div className="ax-market-window-inside">
+       <div className="ax-market-window-side"><img src="/aurox-logo.png" alt="" width="27" height="27"/><span/><span/><span/><span/></div>
+       <div className="ax-market-window-work"><div className="ax-market-window-welcome"><div><small>GESTÃO EM UM SÓ LUGAR</small><strong>Seu dia, em movimento.</strong></div><span className="ax-market-window-today">Painel</span></div>
+        <div className="ax-market-window-mini-grid"><div><MessageSquareText size={18}/><span>Leads</span><b>Triagem organizada</b></div><div><CarFront size={18}/><span>Estoque</span><b>Veículos em foco</b></div><div><UsersRound size={18}/><span>Equipe</span><b>Fluxo integrado</b></div></div>
+        <div className="ax-market-window-bottom"><div><small>JORNADA DO ATENDIMENTO</small><div className="ax-market-flow-stage"><span>Chegada</span><ArrowRight size={13}/><span>Negociação</span><ArrowRight size={13}/><span>Venda</span></div><div className="ax-market-skeleton-line"/><div className="ax-market-skeleton-line short"/></div><div className="ax-market-window-preview"><ChartNoAxesCombined size={30}/><strong>Decisões com contexto</strong><small>Uma visão mais clara da sua operação.</small></div></div>
+       </div>
+      </div></div>
+     <div className="ax-market-window-sticker"><Sparkles size={17}/> Uma operação, mais possibilidades</div>
+    </div>
+    <button type="button" className="ax-market-scroll" onClick={()=>navegar('ax-recursos')}>Explore a plataforma <ChevronDown size={17}/></button>
+   </section>
+   <section className="ax-market-features" id="ax-recursos" aria-label="O que o AUROX oferece">
+    <div className="ax-market-section-heading"><span className="ax-market-kicker">PENSADO PARA REVENDAS</span><h2>Menos telas soltas.<br/><em>Mais controle.</em></h2><p>Uma operação automotiva precisa de velocidade, organização e informação no lugar certo.</p></div>
+    <div className="ax-market-feature-grid">{recursos.map(r=>{const Icon=r.icon;return <article className="ax-market-feature-card" key={r.titulo}><span className="ax-market-feature-icon"><Icon size={21}/></span><h3>{r.titulo}</h3><p>{r.texto}</p><small><Check size={13}/>{r.status}</small></article>})}</div>
+    <div className="ax-market-feature-ribbon"><div><Building2 size={20}/><span><strong>Por empresa</strong><small>Informação no seu próprio ambiente</small></span></div><div><ShieldCheck size={20}/><span><strong>Por permissão</strong><small>Acesso de acordo com o cargo</small></span></div><div><MousePointerClick size={20}/><span><strong>Por necessidade</strong><small>Escolha os módulos para sua operação</small></span></div></div>
+   </section>
+   <section className="ax-market-plans" id="ax-planos" aria-label="Preços AUROX">
+    <div className="ax-market-section-heading ax-market-plan-heading"><span className="ax-market-kicker">INVESTIMENTO SEM SURPRESAS</span><h2>Seu AUROX. <em>Seu pacote.</em></h2><p>Comece com o essencial e selecione os serviços de que precisa. Valores estimados, transparentes, sem consulta ao banco de dados.</p></div>
+    <div className="ax-market-pricing-layout">
+     <div className="ax-market-pricing-products">
+      <div className="ax-market-base"><span><span className="ax-market-base-label">INCLUSO EM TODOS OS PLANOS</span><b>AUROX Base</b><small>Estoque, cadastro de veículos e equipe</small></span><strong>{reais(14900)}<small>/mês</small></strong></div>
+      <div className="ax-market-products-label"><span>Módulos adicionais</span><small>Selecione para simular</small></div>
+      <div className="ax-market-list" role="group" aria-label="Módulos adicionais">
+       {AUROX_MODULOS_PUBLICOS.map(m=>{const Icon=modulosIcones[m.id]||Layers3;return <label key={m.id} className={`ax-market-option ${modulos.includes(m.id)?'is-selected':''}`}>
+        <input type="checkbox" checked={modulos.includes(m.id)} onChange={()=>alternar(m.id)}/><span className="ax-market-check" aria-hidden="true">{modulos.includes(m.id)?<Check size={13}/>:<Icon size={16}/>}</span>
+        <span className="ax-market-option-copy"><strong>{m.nome}</strong><small>{m.descricao}</small><span className={`ax-market-state ${m.estado}`}>{m.estado==='disponivel'?'Disponível':m.estado==='previsto'?'Em breve':'Em implantação'}</span></span>
         <span className="ax-market-option-price">+ {reais(m.centavos)}</span>
-       </label>)}
+       </label>})}
+      </div>
+      <p className="ax-market-pricing-hint">Serviços em implantação ou em breve estão no simulador para planejamento; a disponibilidade será confirmada pela equipe. WhatsApp: somente uma conexão por empresa nesta oferta.</p>
      </div>
-     {modulos.includes('whatsapp')&&<div className="ax-market-numbers"><label htmlFor="ax-wa-numbers">Números de WhatsApp (simulação)</label><select id="ax-wa-numbers" value={numerosWhatsApp} onChange={e=>setNumerosWhatsApp(Number(e.target.value))}>{Array.from({length:AUROX_NUMEROS_MAX_SIMULADOR},(_,i)=><option key={i+1} value={i+1}>{i+1} {i===0?'número':'números'}</option>)}</select><small>Inclui 1 número. Cada adicional: {reais(AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS)}/mês. Capacidade técnica de 30 sessões ainda depende de homologação.</small></div>}
-     <div className="ax-market-summary">
-      <div className="ax-market-summary-row"><span>Mensalidade regular</span><strong>{reais(cotacao.normalCentavos)}</strong></div>
-      {cotacao.elegivelPromocao ? <div className="ax-market-offer"><div><strong>Você ganhou 25% de desconto!</strong><span>Só no primeiro mês · economia até R$ 180</span></div><div><small>Primeira mensalidade</small><strong>{reais(cotacao.primeiroMesCentavos)}</strong></div><p>Economia inicial: {reais(cotacao.economiaCentavos)}. Depois: {reais(cotacao.normalCentavos)}/mês.</p></div>
-      : <p className="ax-market-tip">A promoção é válida para mensalidades <strong>acima</strong> de R$ 500. Total de R$ 500 não se qualifica.</p>}
-      <details className="ax-market-countdown"><summary>Como funciona o prazo de 1 mês <ChevronDown size={15}/></summary><div><p>O prazo começa na data real de ativação do contrato. Abaixo é apenas uma simulação; <b>nenhum contrato é criado aqui</b>.</p><label htmlFor="ax-date">Simular início da contratação</label><input id="ax-date" type="date" value={inicioSimulado} onChange={e=>setInicioSimulado(e.target.value)}/><strong>{diasRestantes} dia(s) de promoção no exemplo</strong></div></details>
-      <button type="button" className="ax-market-primary" onClick={()=>setSolicitar(true)}>Solicitar implantação <ArrowRight size={18}/></button>
-      <button type="button" className="ax-market-secondary" onClick={()=>setTela('entrar')}>Já sou cliente · Entrar no AUROX</button>
-      <p className="ax-market-note">Valores de referência comercial. Sem cobrança nesta tela. Serviços em implantação dependem de liberação técnica, e domínio próprio é contratado à parte.</p>
-     </div>
+     <aside className="ax-market-summary" aria-label="Resumo da simulação">
+      <span className="ax-market-kicker">SEU INVESTIMENTO</span><h3>Resumo do pacote</h3>
+      <div className="ax-market-summary-sub"><span>Base</span><span>{reais(14900)}</span></div><div className="ax-market-summary-sub"><span>Módulos selecionados</span><span>{modulos.length}</span></div>
+      <div className="ax-market-summary-total"><small>Mensalidade regular</small><strong>{reais(cotacao.normalCentavos)}<span>/mês</span></strong></div>
+      {cotacao.elegivelPromocao?<div className="ax-market-offer"><strong><Sparkles size={16}/> Boas-vindas AUROX</strong><span>25% OFF no 1º mês • limite de R$ 180</span><div><small>Primeiro mês</small><b>{reais(cotacao.primeiroMesCentavos)}</b></div><p>Você economiza {reais(cotacao.economiaCentavos)}. Depois, {reais(cotacao.normalCentavos)}/mês.</p></div>
+       :<div className="ax-market-offer ax-market-offer-muted"><strong>Condição de boas-vindas</strong><p>Pacotes acima de R$ 500 têm 25% de desconto na primeira mensalidade, até R$ 180.</p></div>}
+      <button type="button" className="ax-market-primary" onClick={()=>setSolicitar(true)}>Solicitar implantação <ArrowUpRight size={18}/></button>
+      <p className="ax-market-note">Esta é uma simulação, não uma contratação. A equipe confirma módulos, disponibilidade, condições e possíveis custos externos.</p>
+     </aside>
     </div>
-  </section>}
-  <AuroxSolicitarImplantacao open={solicitar} onClose={()=>setSolicitar(false)} modulos={modulos} numerosWhatsApp={numerosWhatsApp}/>
-  <footer className="ax-market-footer"><span>© AUROX · Gestão automotiva</span><nav aria-label="Links legais"><Link href="/termos">Termos</Link><Link href="/privacidade">Privacidade</Link><Link href="/ajuda">Suporte</Link></nav></footer>
+   </section>
+   <section className="ax-market-closing"><div><span className="ax-market-kicker">AUROX · GESTÃO AUTOMOTIVA</span><h2>Seu próximo lead merece<br/>uma operação preparada.</h2><p>Conte sobre sua concessionária. Nossa equipe entra em contato para entender o que faz sentido para você.</p></div><button type="button" className="ax-market-primary" onClick={()=>setSolicitar(true)}>Quero conhecer o AUROX <ArrowRight size={18}/></button></section>
+  </>}
+  <AuroxSolicitarImplantacao open={solicitar} onClose={()=>setSolicitar(false)} modulos={modulos}/>
+  <footer className="ax-market-footer"><span>© AUROX · Gestão automotiva</span><nav aria-label="Links legais"><Link href="/termos">Termos de uso</Link><Link href="/privacidade">Privacidade</Link><Link href="/ajuda">Ajuda e suporte</Link></nav></footer>
  </main>;
 }
