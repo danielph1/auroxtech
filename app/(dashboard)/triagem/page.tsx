@@ -97,7 +97,9 @@ function Item({ t, onOk }: { t: any; onOk: () => void }) {
           <SelectTrigger className="w-32"><SelectValue placeholder="Loja" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
-            {lojas.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            {lojas.map((l) => <SelectItem key={l} value={l}>
+                                {empresaId === 13 && l === 'AURX' ? 'Aurox' : l}
+                              </SelectItem>)}
           </SelectContent>
         </Select>
         <Button size="sm" disabled={!vendedor} onClick={atribuir}>Atribuir</Button>
