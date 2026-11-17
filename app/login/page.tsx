@@ -103,11 +103,11 @@ export default function LoginPage(){
       <div className="ax-market-list" role="group" aria-label="Módulos adicionais">
        {AUROX_MODULOS_PUBLICOS.map(m=>{const Icon=modulosIcones[m.id]||Layers3;return <label key={m.id} className={`ax-market-option ${modulos.includes(m.id)?'is-selected':''}`}>
         <input type="checkbox" checked={modulos.includes(m.id)} onChange={()=>alternar(m.id)}/><span className="ax-market-check" aria-hidden="true">{modulos.includes(m.id)?<Check size={13}/>:<Icon size={16}/>}</span>
-        <span className="ax-market-option-copy"><strong>{m.nome}</strong><small>{m.descricao}</small><span className={`ax-market-state ${m.estado}`}>{m.estado==='disponivel'?'Disponível':m.estado==='previsto'?'Em breve':'Em implantação'}</span></span>
+        <span className="ax-market-option-copy"><strong>{m.nome}</strong><small>{m.descricao}</small></span>
         <span className="ax-market-option-price">+ {reais(m.centavos)}</span>
        </label>})}
       </div>
-      <p className="ax-market-pricing-hint">Serviços em implantação ou em breve estão no simulador para planejamento; a disponibilidade será confirmada pela equipe. WhatsApp: somente uma conexão por empresa nesta oferta.</p>
+      <p className="ax-market-pricing-hint">A equipe confirma a disponibilidade e a ativação de cada módulo antes da contratação. A oferta de WhatsApp contempla apenas uma conexão por empresa.</p>
      </div>
      <aside className="ax-market-summary" aria-label="Resumo da simulação">
       <span className="ax-market-kicker">SEU INVESTIMENTO</span><h3>Resumo do pacote</h3>

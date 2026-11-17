@@ -23,7 +23,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         [id],
       )
     ).rows;
-    return NextResponse.json({ ...emp, lojas, usuarios });
+    let contrato=null;let modulos_contratados:string[]=[];
+    try{
+     contrato=await queryOne(`SELECT base_mensal_centavos,status FROM public.aurox_contratos_comerciais WHERE empresa_id=$1`,[id]);
+     const mods=await query<{codigo:string}>(`SELECT codigo FROM public.aurox_contrato_servicos WHERE empresa_id=$1 AND ativo=true`,[id]);
+     modulos_contratados=mods.rows.map(x=>x.codigo);
+    }catch(e:any){if(String(e?.code)!=='42P01')throw e;}
+    return NextResponse.json({ ...emp, lojas, usuarios, contrato, modulos_contratados });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message }, { status: 500 });
   }

@@ -5,7 +5,7 @@ import {getPool} from '@/lib/db';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-const estados=new Set(['novo','em_atendimento','concluido','descartado']);
+const estados=new Set(['novo','em_atendimento','concluido','descartado','aprovado']);
 const response=(x:object,status=200)=>NextResponse.json(x,{status,headers:{'Cache-Control':'no-store'}});
 
 /** Acesso EXCLUSIVO de superadmin. Não aceita empresa_id, nem seleciona todas as empresas. */
@@ -20,7 +20,7 @@ export async function GET(req:NextRequest){
   try{
    const {rows}=await db.query(`SELECT s.id,s.nome_empresa,s.nome_responsavel,s.telefone,s.cidade,s.uf,
        s.modulos,s.mensalidade_centavos,s.primeiro_mes_centavos,s.observacao,
-       s.status,s.anotacoes_internas,s.criado_em,s.atualizado_em,s.triagem_id
+       s.status,s.anotacoes_internas,s.criado_em,s.atualizado_em,s.triagem_id,s.aprovado_em,s.aprovado_por
      FROM public.aurox_solicitacoes_comerciais s
      JOIN public.empresas e ON e.id=s.empresa_id AND e.slug='aurox-plataforma'
      WHERE ($1::text='todos' OR s.status=$1::text)
@@ -36,7 +36,7 @@ export async function PATCH(req:NextRequest){
  if(!user||!isSuperAdmin(user))return response({error:'Acesso restrito ao superadmin AUROX'},403);
  const body=await req.json().catch(()=>null);
  const id=Number(body?.id);const status=String(body?.status||'');const notas=String(body?.anotacoes_internas??'');
- if(!Number.isSafeInteger(id)||id<=0||!estados.has(status)||notas.length>4000)
+ if(!Number.isSafeInteger(id)||id<=0||!estados.has(status)||status==='aprovado'||notas.length>4000)
   return response({error:'Identificador, status ou observações inválidos'},400);
  try{
   const db=await getPool().connect();
