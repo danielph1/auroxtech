@@ -37,6 +37,7 @@ export default function ImportacoesPlanilhas(){
  async function enviar(acao:'preview'|'confirmar'){
   if(!arquivo||!empresa){toast.error('Escolha empresa e planilha.');return;}
   if(tipo==='veiculos'&&!loja){toast.error('Selecione uma loja padrão.');return;}
+  if(arquivo.size>6*1024*1024){toast.error('Planilha acima de 6 MB.');return;}
   const body=new FormData();body.append('arquivo',arquivo);body.append('empresa_id',empresa);
   body.append('tipo',tipo);body.append('acao',acao);body.append('loja',loja);
   setBusy(true);
@@ -72,12 +73,12 @@ export default function ImportacoesPlanilhas(){
    </div>
    <label className="block rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-6 text-center cursor-pointer hover:bg-primary/10">
     <Upload className="mx-auto mb-2 h-7 w-7 text-primary"/><span className="block text-sm font-semibold">{arquivo?.name||'Selecionar planilha CSV ou XLSX'}</span>
-    <span className="mt-1 block text-xs text-muted-foreground">Máximo 3 MB · Até 1.000 linhas · Sem envio automático de mensagens</span>
-    <input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={e=>{setArquivo(e.target.files?.[0]||null);limpar();}}/>
+    <span className="mt-1 block text-xs text-muted-foreground">Máximo 6 MB · Até 1.000 linhas · Sem envio automático de mensagens</span>
+    <input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={e=>{const f=e.target.files?.[0]||null;if(f&&f.size>6*1024*1024){toast.error('A planilha deve ter no máximo 6 MB.');setArquivo(null);e.target.value='';}else setArquivo(f);limpar();}}/>
    </label>
    <div className="rounded-xl bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
      {tipo==='leads'?<><strong className="text-foreground">Obrigatórios: Nome e Telefone.</strong> Outros campos são opcionais. Sem telefone ou sem nome, a linha é ignorada. Telefones repetidos na planilha ou já existentes nesta empresa não entram de novo. Os registros entram na Triagem com origem <code>importacao-planilha</code>.</>
-     :<><strong className="text-foreground">Obrigatórios: Marca, Modelo, Ano, Preço e loja.</strong> A placa é opcional; quando presente, será verificada contra duplicidades na mesma empresa. Fotos por placa serão associadas em fluxo separado.</>}
+     :<><strong className="text-foreground">Obrigatórios: Marca, Modelo, Ano, Preço, Placa e loja.</strong> Veículos sem placa ou com placa inválida serão ignorados. Placas repetidas na mesma empresa também serão ignoradas. Fotos por placa serão associadas em fluxo separado.</>}
    </div>
    <button disabled={busy||!arquivo||!empresa||(tipo==='veiculos'&&!loja)} onClick={()=>void enviar('preview')}
     className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">

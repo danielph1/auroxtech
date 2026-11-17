@@ -52,11 +52,12 @@ async function pesquisarExistentes(db:any,tipo:'leads'|'veiculos',empresaId:numb
 export async function POST(req:NextRequest){
  const u=await requireUser(req);if(!u)return RESP({error:'Não autenticado'},401);
  const role=String(u.tipo).toLowerCase();if(!ROLES.includes(role))return RESP({error:'Sem permissão'},403);
- if(Number(req.headers.get('content-length')||'0')>4*1024*1024)return RESP({error:'Arquivo muito grande (máximo 3 MB).'},413);
+ if(Number(req.headers.get('content-length')||'0')>7*1024*1024)return RESP({error:'Arquivo muito grande (máximo 6 MB).'},413);
  let form:FormData;
  try{form=await req.formData();}catch{return RESP({error:'Envie um arquivo válido.'},400);}
  const file=form.get('arquivo');
  if(!file||typeof file==='string')return RESP({error:'Selecione uma planilha CSV ou XLSX.'},400);
+ if((file as File).size>6*1024*1024)return RESP({error:'Arquivo muito grande (máximo 6 MB).'},413);
  const tipo=String(form.get('tipo')||'');if(tipo!=='leads'&&tipo!=='veiculos')return RESP({error:'Tipo inválido.'},400);
  if(tipo==='veiculos'&&role==='vendedor')return RESP({error:'Sem permissão para importar estoque.'},403);
  const acao=String(form.get('acao')||'preview');if(acao!=='preview'&&acao!=='confirmar')return RESP({error:'Ação inválida.'},400);

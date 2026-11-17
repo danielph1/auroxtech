@@ -1,6 +1,6 @@
 import {csvParaLinhas} from './aurox-importacao-core';
 
-const MAX_BYTES=3*1024*1024;
+const MAX_BYTES=6*1024*1024;
 const MAX_ROWS=1001; // cabeçalho + 1000 linhas
 const MAX_COLS=40;
 function verificarZipXlsx(buff:Buffer){
@@ -22,7 +22,7 @@ function verificarZipXlsx(buff:Buffer){
 
 /** Arquivos XLSX usam ExcelJS; instala-se a dependência pelo instalador. */
 export async function lerPlanilha(file:File):Promise<string[][]>{
- if(file.size<1||file.size>MAX_BYTES)throw new Error('Arquivo vazio ou maior que 3 MB.');
+ if(file.size<1||file.size>MAX_BYTES)throw new Error('Arquivo vazio ou maior que 6 MB.');
  const name=file.name.toLowerCase();
  if(name.endsWith('.csv')){
   const buf=await file.arrayBuffer();

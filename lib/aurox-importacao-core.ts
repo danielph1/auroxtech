@@ -38,7 +38,7 @@ export function detectarMapeamento(cabecalho:string[]):Mapeamento {
 }
 export function csvParaLinhas(text:string):string[][] {
  const content=text.replace(/^\uFEFF/,'');
- if(content.length>4_000_000)throw new Error('Arquivo CSV grande demais.');
+ if(Buffer.byteLength(content,'utf8')>6*1024*1024)throw new Error('Arquivo CSV grande demais (máximo 6 MB).');
  // Detecta delimitador sem contar separadores dentro de aspas.
  const first=content.split(/\r?\n/,1)[0]||'';
  const count=(c:string)=>{let inside=false,n=0;for(let i=0;i<first.length;i++){if(first[i]==='"'){if(inside&&first[i+1]==='"'){i++;continue;}inside=!inside;}else if(!inside&&first[i]===c)n++;}return n;};
@@ -102,7 +102,7 @@ export function processarLeads(linhas:string[][],mapping?:Mapeamento){
 }
 export function processarVeiculos(linhas:string[][],lojaPadrao:string,mapping?:Mapeamento){
  const cabecalho=linhas[0]||[];const map=mapping||detectarMapeamento(cabecalho);
- for(const key of ['marca','modelo','ano','preco'])if(map[key]===undefined)throw new Error(`Coluna obrigatória não encontrada: ${key}.`);
+ for(const key of ['marca','modelo','ano','preco','placa'])if(map[key]===undefined)throw new Error(`Coluna obrigatória não encontrada: ${key}.`);
  const validos:EntradaVeiculo[]=[],rejeitados:Rejeitado[]=[],vistos=new Set<string>();
  for(let i=1;i<linhas.length;i++){
   const row=linhas[i];if(!row?.some(c=>String(c).trim()))continue;
@@ -111,8 +111,8 @@ export function processarVeiculos(linhas:string[][],lojaPadrao:string,mapping?:M
   const agora=new Date().getUTCFullYear();
   if(marca.length<2||modelo.length<2||!Number.isInteger(ano)||ano<1900||ano>agora+2||preco===null){rejeitados.push({linha:i+1,motivo:'Marca, modelo, ano ou preço inválido'});continue;}
   const rawPlate=get(row,map,'placa');const placa=extrairPlacas(rawPlate)[0]||'';
-  if(rawPlate&&!placa){rejeitados.push({linha:i+1,motivo:'Placa informada inválida'});continue;}
-  if(placa&&vistos.has(placa)){rejeitados.push({linha:i+1,motivo:'Placa repetida na planilha'});continue;}
+  if(!placa){rejeitados.push({linha:i+1,motivo:rawPlate?'Placa inválida':'Placa obrigatória'});continue;}
+  if(vistos.has(placa)){rejeitados.push({linha:i+1,motivo:'Placa repetida na planilha'});continue;}
   if(placa)vistos.add(placa);
   const patio=safe(get(row,map,'patio')||lojaPadrao,30).toUpperCase();
   if(!patio){rejeitados.push({linha:i+1,motivo:'Loja obrigatória'});continue;}
