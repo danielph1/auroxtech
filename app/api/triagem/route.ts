@@ -111,7 +111,11 @@ export async function GET(req:NextRequest) {
   try {
     const actor=await gestorAtendimento(req);
     if(!actor) return NextResponse.json({error:'sem permissão'},{status:403});
-    await expirar(actor.empresa_id,actor.tipo==='superadmin');
+    // A consulta de superadmin nao deve aguardar o processamento das demais empresas.
+    // AUROX interna segue com atribuicao manual; os demais papeis mantem a rotina existente.
+    if (actor.tipo !== 'superadmin') {
+      await expirar(actor.empresa_id, false);
+    }
     const {rows}=await query(
       `SELECT t.*, wa.media_id, wa.media_type
         FROM public.triagem t

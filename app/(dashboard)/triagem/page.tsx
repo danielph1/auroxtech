@@ -23,7 +23,7 @@ export default function TriagemPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><h1 className="text-2xl font-bold">Triagem</h1><Link href="/importacoes/planilhas" className="rounded-lg border border-primary/50 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10">Importar leads por planilha</Link></div>
       <p className="text-sm text-muted-foreground">
-        Leads novos. Mensagens do Aurox-WhatsApp ficam até 10 segundos na fila antes da atribuição automática; outros canais seguem o prazo de 1 minuto.
+        Leads novos aparecem na triagem. Solicitações comerciais da AUROX aguardam atribuição manual a Daniel ou Alexandre. Nas demais empresas, a distribuição automática depende da rotina de atendimento.
       </p>
       {(Array.isArray(data) ? data : []).length === 0 && <p className="text-muted-foreground">Nenhum lead na fila.</p>}
       {(Array.isArray(data) ? data : []).map((t: any) => (
