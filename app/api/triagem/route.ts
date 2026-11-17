@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, getPool } from '@/lib/db';
 import { gestorAtendimento } from '@/lib/atendimento-auth';
+import { processarRodizioTriagem } from '@/lib/aurox-rodizio-triagem';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** Checagem da fila sempre limitada à empresa para não atribuir leads entre clientes. */
-async function expirar(empresaId: number | null, superadmin: boolean) {
-  const {rows} = await query<{id:number;empresa_id:number}>(
-    `SELECT id,empresa_id FROM public.triagem
-      WHERE status='aguardando' AND empresa_id IS NOT NULL
-        AND created_at < now() -
-          (CASE WHEN origem='aurox-whatsapp' THEN interval '10 seconds'
-                ELSE interval '10 seconds' END)
-        AND ($1::boolean OR empresa_id=$2)
-        AND NOT EXISTS (SELECT 1 FROM public.empresas e WHERE e.id=triagem.empresa_id AND e.slug='aurox-plataforma')
-      ORDER BY created_at LIMIT 50`,[superadmin,empresaId],
-  );
-  for(const t of rows) {
-    const v=await queryOne<{id:number}>(
-      `SELECT id FROM public.vendedores
-        WHERE empresa_id=$1 AND COALESCE(ativo,FALSE)=TRUE
-          AND EXISTS (SELECT 1 FROM public.usuarios u WHERE u.vendedor_id=public.vendedores.id
-            AND u.empresa_id=public.vendedores.empresa_id AND LOWER(u.tipo)='vendedor'
-            AND COALESCE(u.ativo,FALSE) AND LOWER(COALESCE(u.status,'ativo'))='ativo')
-        ORDER BY random() LIMIT 1`,[t.empresa_id]);
-    if(v) await virarLead(t.id,v.id,t.empresa_id).catch(err=>console.error('triagem auto',err instanceof Error?err.message:'erro'));
-  }
-}
 
 /** Operação atômica: row lock, valida empresa do vendedor e registra lead exatamente uma vez. */
 async function virarLead(triagemId:number,vendedorId:number,empresaPermitida:number | null) {
@@ -114,7 +91,7 @@ export async function GET(req:NextRequest) {
     // A consulta de superadmin nao deve aguardar o processamento das demais empresas.
     // AUROX interna segue com atribuicao manual; os demais papeis mantem a rotina existente.
     if (actor.tipo !== 'superadmin') {
-      await expirar(actor.empresa_id, false);
+      await processarRodizioTriagem(actor.empresa_id,2);
     }
     const {rows}=await query(
       `SELECT t.*, wa.media_id, wa.media_type

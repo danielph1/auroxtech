@@ -106,7 +106,7 @@ export default function NovoLeadPage() {
                     setForm((f: any) => ({ ...f, vendedor_id: '' }));
                   }}>
                     <SelectTrigger><SelectValue placeholder="Escolha uma empresa" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[250]">
                       {empresas.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -116,12 +116,13 @@ export default function NovoLeadPage() {
                 <Label className="text-sm">Vendedor responsável*</Label>
                 <Select value={String(user?.tipo==='vendedor'?user?.vendedor_id||'':form.vendedor_id||'')} onValueChange={(v) => {if(user?.tipo!=='vendedor')setForm({ ...form, vendedor_id: Number(v) });}} disabled={user?.tipo==='vendedor'||(isSuper && !empresaSelecionada)}>
                   <SelectTrigger><SelectValue placeholder={carregandoVendedores ? 'Carregando…' : 'Selecione um vendedor'} /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[250]">
                     {vendedoresVisiveis.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>{v.nome} · Loja {v.loja || '—'}{isSuper ? ` · ${v.empresa_nome || ''}` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {user?.tipo==='vendedor'&&<p className="text-xs text-muted-foreground">Atribuição automática ao vendedor logado. Apenas um gestor pode transferir o atendimento depois do cadastro.</p>}
                 {erroVendedores && <p className="text-sm text-destructive">Falha ao consultar vendedores. Verifique a conexão com o banco.</p>}
+                {!carregandoVendedores && !erroVendedores && vendedoresVisiveis.length===0 && (!isSuper || !!empresaSelecionada) && <p className="text-sm text-amber-500">Nenhum vendedor ativo vinculado a esta empresa. Verifique o cadastro e o vínculo vendedor_id dos usuários de cargo vendedor.</p>}
                 {isSuper && empresaSelecionada && !vendedoresVisiveis.length && !carregandoVendedores && <p className="text-sm text-amber-500">Esta empresa não possui vendedores ativos. Cadastre um vendedor na aba Usuários antes de criar o lead.</p>}
               </div>
               <F label="Produto de interesse" value={form.produto_interesse} onChange={(v) => setForm({ ...form, produto_interesse: v })} />

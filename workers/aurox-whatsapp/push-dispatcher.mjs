@@ -50,4 +50,34 @@ export function startPushDispatcher(base) {
     if (data.pausado) console.info('[Aurox Follow Up] agendamento pausado fora do horário configurado.');
     else if (Number(data.processados) > 0) console.info(`[Aurox Follow Up] ${data.processados} processados; ${data.enviados || 0} enviados; ${data.erros || 0} erros.`);
   });
+
+  // Rodízio automático por empresa, independente da página Triagem.
+  // Apenas o processo mestre executa este dispatcher; filhos não o executam.
+  const waSecret = String(process.env.AUROX_WA_WORKER_SECRET || '');
+  if (waSecret.length >= 32) {
+    let rodizioRunning = false;
+    const rodizioTick = async () => {
+      if (rodizioRunning) return;
+      rodizioRunning = true;
+      try {
+        const r = await fetch(`${appUrl}/api/internal/aurox-whatsapp/triagem-rodizio`, {
+          headers: { Authorization: `Bearer ${waSecret}` },
+          signal: AbortSignal.timeout(20000), cache:'no-store',
+        });
+        if (!r.ok) {
+          console.warn(`[Aurox Rodízio] HTTP ${r.status}; confira migração e credenciais.`);
+          return;
+        }
+        const data = await r.json();
+        if (Number(data.atribuidos)>0 || Number(data.erros)>0)
+          console.info(`[Aurox Rodízio] atribuídos=${data.atribuidos}, erros=${data.erros}`);
+      } catch (e) {
+        console.warn('[Aurox Rodízio] serviço indisponível:', e instanceof Error?e.message:'erro');
+      } finally { rodizioRunning = false; }
+    };
+    console.info('[Aurox Rodízio] agendador ativo: a cada 10 segundos');
+    setTimeout(()=>{void rodizioTick();},4500).unref();
+    setInterval(()=>{void rodizioTick();},10000).unref();
+  } else console.warn('[Aurox Rodízio] segredo do worker ausente ou insuficiente');
+
 }
