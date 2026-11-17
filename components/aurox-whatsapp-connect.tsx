@@ -19,7 +19,7 @@ type Status = {
 };
 const statusText:Record<string,string> = {
   conectado:'Conectado',qr:'Aguardando leitura do QR Code',autenticando:'Autenticando',
-  iniciando:'Iniciando WhatsApp Web',desconectado:'Desconectado',erro:'Falha na conexão',worker_offline:'Servidor do WhatsApp indisponível',
+  iniciando:'Iniciando WhatsApp Web',reconectando:'Restaurando conexão automaticamente',desconectado:'Desconectado',erro:'Falha na conexão',worker_offline:'Servidor do WhatsApp indisponível',
 };
 
 export function AuroxWhatsappConnect({ empresaId }: { empresaId: string }) {

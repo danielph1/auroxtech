@@ -24,6 +24,7 @@ const CHILD_SCRIPT = process.env.NODE_ENV === 'test' && process.env.AUROX_WA_TES
 const nodes = new Map(); // empresa_id -> {process, port, ready, intentional}
 const authorized = new Set(); // ids enabled by POST /start or authenticated bootstrap
 const failures = new Map(); // only crashed session retries
+const recoveryAttempts = new Map(); // intervalos de segurança para reconexão
 let stopping = false;
 let bootstrapBusy = false;
 if (SECRET.length < 32 || !/^https:\/\//.test(BASE) || !Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
@@ -175,18 +176,53 @@ async function bootstrap() {
   bootstrapBusy=true;
   try{
     const r=await fetch(`${BASE}/api/internal/aurox-whatsapp/bootstrap`,{
-      headers:{Authorization:`Bearer ${SECRET}`}, signal:AbortSignal.timeout(12000)});
+      headers:{Authorization:`Bearer ${SECRET}`},signal:AbortSignal.timeout(12000)});
     if(!r.ok)throw Error(`HTTP ${r.status}`);
     const data=await r.json();
-    const ids=[...new Set((Array.isArray(data.sessions)?data.sessions:[]).map(s=>companyId(s.empresa_id)).filter(Boolean))];
-    for(const id of ids.slice(0,MAX)){
-      authorized.add(id);
-      if(!nodes.has(id)){
-        try{await spawnCompany(id);}catch(e){console.error(`[empresa ${id}] restaurar: ${e.message}`);}
-        await new Promise(r=>setTimeout(r,950));
+    // A origem da verdade é a lista de empresas habilitadas no banco, não a aba do navegador.
+    const targets=[...new Map((Array.isArray(data.sessions)?data.sessions:[])
+      .map(s=>({id:companyId(s.empresa_id),instancia_id:String(s.instancia_id||'')}))
+      .filter(s=>s.id&&/^[0-9a-f-]{36}$/i.test(s.instancia_id))
+      .map(s=>[s.id,s])).values()];
+    const activeIds=new Set(targets.slice(0,MAX).map(s=>s.id));
+    // Se houve revogação de acesso no banco, interrompe somente o processo local,
+    // preservando o perfil/QR e sem fazer logout remoto de outra empresa.
+    for(const [id,node] of nodes){
+      if(!activeIds.has(id)){
+        authorized.delete(id);
+        recoveryAttempts.delete(id);
+        stopNode(id,node);
       }
     }
-    if(ids.length>MAX)console.warn(`[AUROX] ${ids.length} empresas ativadas, limite configurado ${MAX}`);
+    for(const id of authorized)if(!activeIds.has(id))authorized.delete(id);
+    for(const s of targets.slice(0,MAX)){
+      authorized.add(s.id);
+      try{
+        const existed=nodes.has(s.id);
+        const node=await spawnCompany(s.id);
+        if(!existed)await new Promise(resolve=>setTimeout(resolve,950));
+        // Apenas o monitor do worker tenta recuperar uma sessão encerrada.
+        // Consultas GET de status jamais criam sessões.
+        const check=await fetch(`http://127.0.0.1:${node.port}/v1/sessions/${s.id}/status`,{
+          headers:{Authorization:`Bearer ${SECRET}`},signal:AbortSignal.timeout(3500)});
+        if(!check.ok)throw Error(`Status HTTP ${check.status}`);
+        const status=String((await check.json()).status||'');
+        if(status==='conectado'){
+          recoveryAttempts.delete(s.id);
+        }else if(status==='desconectado'||status==='erro'){
+          const last=recoveryAttempts.get(s.id)||0;
+          if(Date.now()-last>=90000){
+            recoveryAttempts.set(s.id,Date.now());
+            const restart=await fetch(`http://127.0.0.1:${node.port}/v1/sessions/${s.id}/start`,{
+              method:'POST',headers:{Authorization:`Bearer ${SECRET}`,'Content-Type':'application/json'},
+              body:JSON.stringify({instance_id:s.instancia_id}),signal:AbortSignal.timeout(8000)});
+            if(!restart.ok)throw Error(`Recuperação HTTP ${restart.status}`);
+            console.info(`[AUROX] empresa ${s.id}: tentativa automática de restaurar sessão`);
+          }
+        }
+      }catch(e){console.warn(`[empresa ${s.id}] recuperação autônoma: ${e.message}`);}
+    }
+    if(targets.length>MAX)console.warn(`[AUROX] ${targets.length} empresas ativadas, limite configurado ${MAX}`);
   }catch(e){console.warn('[AUROX] bootstrap das sessões indisponível:',e.message);}
   finally{bootstrapBusy=false;}
 }
@@ -217,8 +253,21 @@ const server=http.createServer(async(req,res)=>{
     reply(res,405,{error:'Método inválido'});return;
   }
   try{
-    if(action==='status' && !nodes.has(id) && !authorized.has(id)){
-      reply(res,200,{status:'desconectado',phone:null,qr:null});return;
+    // Status é somente leitura: abrir Integrações nunca cria o processo WhatsApp.
+    if(action==='status'){
+      const node=nodes.get(id);
+      if(!node){
+        reply(res,200,{status:authorized.has(id)?'reconectando':'desconectado',phone:null,qr:null});
+        return;
+      }
+      try{
+        await node.ready;
+        await proxy(req,res,node,id,action);
+      }catch(e){
+        console.warn(`[empresa ${id}] status durante recuperação: ${e.message}`);
+        reply(res,200,{status:'reconectando',phone:null,qr:null});
+      }
+      return;
     }
     if(action==='start')authorized.add(id);
     if(action==='send' && !authorized.has(id) && !nodes.has(id)) {reply(res,409,{error:'Sessão não habilitada para envio'});return;}
@@ -239,7 +288,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   console.info(`[AUROX] gerenciador multiempresa ativo na porta ${PORT}; ${MAX} sessões; 1 processo por empresa`);
   void bootstrap();
 });
-setInterval(()=>{void bootstrap();},120000).unref();
+setInterval(()=>{void bootstrap();},30000).unref();
 startPushDispatcher(BASE); // exactly once; child sessions do not run these schedules
 async function shutdown(){
   if(stopping)return;

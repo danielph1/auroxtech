@@ -191,8 +191,16 @@ async function flushOutbox() {
           }
         }
       } catch(e) {
-        if(e.code===403 || e.code===401) {
-          // Desconectado/revogado: não manter mensagens pessoais na fila local.
+        if(e.code===401) {
+          // 401 pode significar chave divergente após atualização: preservar evento
+          // criptografado para reenvio, nunca perdê-lo silenciosamente.
+          console.error(`[${ev.empresa_id}] evento preservado na fila: autenticação recusada (401). Verifique a mesma chave secreta no worker e Vercel.`);
+          break;
+        }
+        if(e.code===403) {
+          // 403 confirmado pelo backend: empresa/instância desativada ou revogada.
+          // A privacidade exige eliminar somente este evento revogado.
+          console.warn(`[${ev.empresa_id}] evento descartado após revogação explícita no servidor (403)`);
           await fs.unlink(p).catch(()=>{});
           continue;
         }
