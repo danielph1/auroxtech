@@ -37,7 +37,7 @@ export async function POST(req:NextRequest){
       return reply({error:'O simulador oferece somente uma conexão de WhatsApp por empresa.'},400);
     const numeros=1;
     const cotacao=cotarAurox(modulos);
-    const key=process.env.JWT_SECRET;
+    const key=process.env.AUROX_COMERCIAL_HASH_SECRET;
     if(!key||key.length<32){console.error('[comercial] JWT_SECRET insuficiente');return reply({error:'Atendimento comercial temporariamente indisponível'},503);}
     const ip=(req.headers.get('x-vercel-forwarded-for')||req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim().slice(0,80);
     const ipHash=createHash('sha256').update(`${key}:comercial:ip:${ip}`).digest('hex');
