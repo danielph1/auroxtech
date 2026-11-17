@@ -7,8 +7,9 @@
  */
 import { Pool, type QueryResultRow } from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
+import { FilaConcorrencia, lerLimite } from './infra/controle-concorrencia';
 
-type PgGlobal = typeof globalThis & { __manuPool?: Pool };
+type PgGlobal = typeof globalThis & { __manuPool?: Pool; __auroxDbGate?: FilaConcorrencia };
 const globalForPg = globalThis as PgGlobal;
 
 function boundedEnv(name: string, fallback: number, min: number, max: number): number {
@@ -66,11 +67,27 @@ export function getPool(): Pool {
   return globalForPg.__manuPool;
 }
 
+/**
+ * Admissao local de queries. ATIVE SOMENTE DEPOIS DO TESTE DE CARGA.
+ * No serverless, cada instância mantém sua própria fila: NÃO há fila global.
+ * O pool de transações Supabase continua sendo o limite real do banco.
+ */
+function gateBanco(): FilaConcorrencia {
+  if (!globalForPg.__auroxDbGate) globalForPg.__auroxDbGate = new FilaConcorrencia(
+    lerLimite('AUROX_DB_MAX_ATIVAS', 20, 1, 100),
+    lerLimite('AUROX_DB_MAX_FILA', 80, 0, 500),
+    lerLimite('AUROX_DB_ESPERA_MS', 700, 50, 10000),
+  );
+  return globalForPg.__auroxDbGate;
+}
+
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[],
 ): Promise<{ rows: T[]; rowCount: number }> {
-  const result = await getPool().query<T>(text, params);
+  const result = process.env.AUROX_DB_ADMISSION_ENABLED === '1'
+    ? await gateBanco().executar(() => getPool().query<T>(text, params))
+    : await getPool().query<T>(text, params);
   return { rows: result.rows, rowCount: result.rowCount ?? 0 };
 }
 

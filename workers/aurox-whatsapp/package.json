@@ -7,7 +7,9 @@
     "start": "node multi-router.mjs",
     "check": "node --check index.mjs && node --check multi-router.mjs",
     "start:legacy": "node index.mjs",
-    "test:isolamento": "node --test tests/router.test.mjs"
+    "test:isolamento": "node --test tests/router.test.mjs",
+    "start:isolado": "node index.mjs",
+    "test:sessoes": "node --test tests/router.test.mjs"
   },
   "dependencies": {
     "whatsapp-web.js": "1.34.7",

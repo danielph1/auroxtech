@@ -1,5 +1,5 @@
 /**
- * AUROX WhatsApp: 1 process per company, up to MAX_SESSIONS simultaneously.
+ * AUROX WhatsApp: 1 process per company, up to MAX_SESSIONS=30 simultaneously (if hardware permits).
  * The router is the ONLY public worker HTTP server. Child servers listen on
  * localhost and can access only their own empresa_id.
  * Do not run this alongside the legacy `node index.mjs` worker.
@@ -15,9 +15,9 @@ import { startPushDispatcher } from './push-dispatcher.mjs';
 const BASE = String(process.env.MANU_APP_URL || '').replace(/\/$/, '');
 const SECRET = String(process.env.AUROX_WA_WORKER_SECRET || '');
 const PORT = Number(process.env.PORT || 3456);
-const MAX = Math.max(1, Math.min(100, Number(process.env.MAX_SESSIONS || 10)));
+const MAX = Math.max(1, Math.min(100, Number(process.env.MAX_SESSIONS || 30)));
 const ROOT = path.resolve(process.env.DATA_DIR || './.wa-data');
-const WAIT_MS = 8000;
+const WAIT_MS = 12000;
 const CHILD_SCRIPT = process.env.NODE_ENV === 'test' && process.env.AUROX_WA_TEST_CHILD_SCRIPT
   ? path.resolve(process.env.AUROX_WA_TEST_CHILD_SCRIPT)
   : fileURLToPath(new URL('./index.mjs', import.meta.url));
@@ -183,7 +183,7 @@ async function bootstrap() {
       authorized.add(id);
       if(!nodes.has(id)){
         try{await spawnCompany(id);}catch(e){console.error(`[empresa ${id}] restaurar: ${e.message}`);}
-        await new Promise(r=>setTimeout(r,850));
+        await new Promise(r=>setTimeout(r,950));
       }
     }
     if(ids.length>MAX)console.warn(`[AUROX] ${ids.length} empresas ativadas, limite configurado ${MAX}`);
@@ -221,6 +221,8 @@ const server=http.createServer(async(req,res)=>{
       reply(res,200,{status:'desconectado',phone:null,qr:null});return;
     }
     if(action==='start')authorized.add(id);
+    if(action==='send' && !authorized.has(id) && !nodes.has(id)) {reply(res,409,{error:'Sessão não habilitada para envio'});return;}
+    if(action==='logout' && !authorized.has(id) && !nodes.has(id)) {reply(res,200,{ok:true});return;}
     if(action==='logout'){
       authorized.delete(id); // do not automatically resurrect this company
       const node=await spawnCompany(id); // allows cleanup of this company's LocalAuth only

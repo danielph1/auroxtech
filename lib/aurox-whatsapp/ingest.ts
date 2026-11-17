@@ -122,7 +122,7 @@ export async function processIncoming(ev:IncomingEvent) {
       firstContact=true;
     } else if (triagemId && !leadId) {
       await db.query(`UPDATE public.triagem SET
-        mensagem=LEFT(CONCAT_WS(E'\n',NULLIF(mensagem,''),$1),8000),
+        mensagem=LEFT(CONCAT_WS(E'\n',NULLIF(mensagem,''),$1::text),8000),
         nome=CASE WHEN (nome IS NULL OR nome='Contato WhatsApp') AND $2<>'Contato WhatsApp' THEN $2 ELSE nome END,
         telefone=COALESCE(telefone,$3)
         WHERE id=$4 AND empresa_id=$5 AND status='aguardando'`,

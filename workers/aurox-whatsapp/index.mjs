@@ -13,7 +13,7 @@ const SECRET = String(process.env.AUROX_WA_WORKER_SECRET || '');
 const PORT = Number(process.env.PORT || 3456);
 const ROOT = path.resolve(process.env.DATA_DIR || './.wa-data');
 const CHILD_ID = Number(process.env.AUROX_WA_ONLY_EMPRESA_ID || 0);
-const MAX = process.env.AUROX_WA_CHILD==='1' ? 1 : Math.max(1,Math.min(100,Number(process.env.MAX_SESSIONS||10)));
+const MAX = process.env.AUROX_WA_CHILD==='1' ? 1 : Math.max(1,Math.min(100,Number(process.env.MAX_SESSIONS||30)));
 if (SECRET.length < 32 || !/^https:\/\//.test(BASE)) {
   console.error('Configure MANU_APP_URL (HTTPS) e AUROX_WA_WORKER_SECRET com 32+ caracteres.');
   process.exit(1);
