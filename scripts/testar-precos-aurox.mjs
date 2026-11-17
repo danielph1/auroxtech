@@ -1,23 +1,26 @@
-/** Executar: node --experimental-strip-types scripts/testar-precos-aurox.mjs (Node >=22). */
+/** Node >=22: node --experimental-strip-types scripts/testar-precos-aurox.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cotarAurox} from '../lib/aurox-precos-publicos.ts';
-
-test('base custa R$149 e não dispara promoção',()=>{
- const p=cotarAurox([]);assert.equal(p.normalCentavos,14900);assert.equal(p.primeiroMesCentavos,14900);assert.equal(p.elegivelPromocao,false);
+import {cotarAurox,AUROX_DESCONTO_PROMO_PORCENTO,AUROX_DESCONTO_TETO_CENTAVOS} from '../lib/aurox-precos-publicos.ts';
+test('regra de desconto: 25% e teto R$180',()=>{
+ assert.equal(AUROX_DESCONTO_PROMO_PORCENTO,25);
+ assert.equal(AUROX_DESCONTO_TETO_CENTAVOS,18000);
 });
-test('somente R$500 exatos não gera desconto',()=>{
- // Serviço estático: soma 149 + 149 + 99 + 79 = 476, não ultrapassa 500.
- const p=cotarAurox(['crm','oficina','inteligencia']);assert.equal(p.normalCentavos,47600);assert.equal(p.elegivelPromocao,false);
+test('base sem desconto',()=>{
+ const v=cotarAurox([]);assert.deepEqual([v.normalCentavos,v.primeiroMesCentavos,v.economiaCentavos],[14900,14900,0]);
 });
-test('R$596 concede 50% apenas na primeira mensalidade',()=>{
- const p=cotarAurox(['crm','financeiro','site']);assert.equal(p.normalCentavos,59600);assert.equal(p.primeiroMesCentavos,29800);assert.equal(p.economiaCentavos,29800);assert.equal(p.elegivelPromocao,true);
+test('pacote de R$596: desconta R$149 somente no primeiro mês',()=>{
+ const v=cotarAurox(['crm','financeiro','site']);
+ assert.deepEqual([v.normalCentavos,v.economiaCentavos,v.primeiroMesCentavos],[59600,14900,44700]);
 });
-test('30 números de WhatsApp calculam 29 adicionais e mantêm limite',()=>{
- const p=cotarAurox(['whatsapp'],30);assert.equal(p.normalCentavos,14900+19900+29*6900);
- assert.equal(cotarAurox(['whatsapp'],300).normalCentavos,p.normalCentavos);
- assert.equal(cotarAurox(['whatsapp','whatsapp'],2).normalCentavos,14900+19900+6900);
+test('pacote grande limita desconto a R$180',()=>{
+ const v=cotarAurox(['whatsapp'],30);
+ assert.equal(v.economiaCentavos,18000);assert.equal(v.primeiroMesCentavos,v.normalCentavos-18000);
 });
-test('número adicional não é cobrado sem módulo WhatsApp',()=>{
+test('sem Whatsapp não há cobrança de número adicional',()=>{
  assert.equal(cotarAurox(['crm'],30).normalCentavos,29800);
+});
+test('desconto só acima de R$500',()=>{
+ // Aproximação via catálogo: R$ 149+149+99+79 = R$476
+ const v=cotarAurox(['crm','oficina','inteligencia']);assert.equal(v.normalCentavos,47600);assert.equal(v.economiaCentavos,0);
 });

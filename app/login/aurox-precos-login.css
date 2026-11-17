@@ -33,3 +33,44 @@
 @media(max-width:520px){.ax-market-header{padding:13px 16px}.ax-market-brand{font-size:15px}.ax-market-brand small{font-size:8px}.ax-market-brand img{width:29px;height:29px}.ax-market-actions{gap:8px}.ax-market-loginbtn{padding:8px 10px;font-size:12px}.ax-market-theme{width:36px;height:38px}.ax-market-content{padding:23px 15px 32px}.ax-market-intro h1{font-size:37px}.ax-market-calculator{border-radius:14px;padding:14px}.ax-market-base{padding:13px}.ax-market-base strong{font-size:15px}.ax-market-option{padding:8px 6px;gap:9px}.ax-market-option-copy>strong{font-size:12px}.ax-market-option-price{font-size:11px}.ax-market-calc-head h2{font-size:20px}.ax-market-offer{grid-template-columns:minmax(0,1fr);gap:8px}.ax-market-offer>div:nth-child(2){text-align:left}.ax-market-offer p{grid-column:auto}.ax-market-footer{padding:15px}.ax-market-auth{margin-top:32px}}
 @media(max-width:360px){.ax-market-loginbtn{font-size:11px}.ax-market-brand small{letter-spacing:.07em}.ax-market-option-price{font-size:10px}.ax-market-check{flex-basis:18px;width:18px;height:18px}}
 @media(prefers-reduced-motion:reduce){.ax-market *{transition:none!important;animation:none!important}}
+/* AUROX Comercial v2 — marca automotiva verde-petróleo/ciano, sem animações pesadas. */
+.ax-market{--ax-bg:#080f15;--ax-card:#101c26;--ax-card2:#0d1721;--ax-border:#243946;--ax-text:#f2faf9;--ax-muted:#99afb6;--ax-accent:#86d9cd;--ax-action:#80d8cc}
+.ax-market-light{--ax-bg:#eef5f5;--ax-card:#fff;--ax-card2:#e8f2f1;--ax-border:#ccdeda;--ax-text:#153033;--ax-muted:#4d6b72;--ax-accent:#146e69;--ax-action:#207f75}
+.ax-market-header{border-bottom-color:var(--ax-border)}
+.ax-market-intro h1 em{color:var(--ax-accent)}
+.ax-market-intro:before{content:'';width:46px;height:3px;display:block;margin-bottom:34px;background:var(--ax-accent);border-radius:8px}
+.ax-market-calculator{box-shadow:0 22px 70px rgba(0,0,0,.19);border-color:color-mix(in srgb,var(--ax-border) 75%,var(--ax-accent))}
+.ax-market-option{border-color:var(--ax-border);background:color-mix(in srgb,var(--ax-card2) 45%,transparent)}
+.ax-market-option.is-selected{border-color:color-mix(in srgb,var(--ax-accent) 52%,var(--ax-border));background:color-mix(in srgb,var(--ax-accent) 7%,var(--ax-card2))}
+.ax-market-base{border-left:3px solid var(--ax-accent)}
+.ax-market-primary{background:var(--ax-action);color:#081c20}
+.ax-market-light .ax-market-primary{color:#fff}
+.ax-market-secondary{width:100%;min-height:41px;border:1px solid var(--ax-border);border-radius:11px;background:transparent;color:var(--ax-text);font-weight:650;margin-top:8px}
+.ax-market-secondary:hover{border-color:var(--ax-accent)}
+.ax-market-promo-info{border-left:3px solid var(--ax-accent);background:linear-gradient(130deg,color-mix(in srgb,var(--ax-accent) 8%,var(--ax-card)),var(--ax-card))}
+.ax-market-offer{background:color-mix(in srgb,var(--ax-accent) 10%,var(--ax-card))}
+.ax-market-overlay{position:fixed;z-index:200;inset:0;background:rgba(0,8,13,.80);backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:center;overflow-y:auto;padding:18px}
+.ax-market-dialog{width:min(100%,580px);max-height:calc(100dvh - 36px);overflow-y:auto;border:1px solid var(--ax-border);background:var(--ax-card);border-radius:20px;box-shadow:0 25px 100px rgba(0,0,0,.4)}
+.ax-market-dialog-head{padding:22px 24px;border-bottom:1px solid var(--ax-border);display:flex;justify-content:space-between;gap:12px;align-items:center}
+.ax-market-dialog-head h2{font-size:23px;margin:7px 0 0;line-height:1.15}
+.ax-market-dialog-head button{border:1px solid var(--ax-border);background:var(--ax-card2);color:var(--ax-text);border-radius:10px;display:grid;place-items:center;width:38px;height:38px;flex-shrink:0}
+.ax-market-dialog-body{padding:22px 24px;display:grid;gap:15px}
+.ax-market-dialog-quote{padding:13px 15px;border-radius:12px;border:1px solid var(--ax-border);background:var(--ax-card2);display:grid;gap:3px}
+.ax-market-dialog-quote span{font-size:11px;color:var(--ax-muted)}
+.ax-market-dialog-quote strong{font-size:20px}
+.ax-market-dialog-quote small{font-size:11px;color:var(--ax-accent)}
+.ax-market-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ax-market-form-grid label{display:grid;gap:6px;color:var(--ax-text);font-size:12px;font-weight:660}
+.ax-market-form-grid input,.ax-market-form-grid select,.ax-market-form-grid textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:10px;background:var(--ax-card2);border:1px solid var(--ax-border);color:var(--ax-text);font-size:14px;outline:0}
+.ax-market-form-grid textarea{resize:vertical;min-height:70px}
+.ax-market-form-grid input:focus,.ax-market-form-grid select:focus,.ax-market-form-grid textarea:focus{border-color:var(--ax-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--ax-accent) 20%,transparent)}
+.ax-market-form-full{grid-column:1/-1}
+.ax-market-consent{display:flex;align-items:flex-start;gap:10px;font-size:11px;color:var(--ax-muted)}
+.ax-market-consent input{flex:0 0 17px;width:17px;height:17px;accent-color:var(--ax-accent)}
+.ax-market-consent a{color:var(--ax-accent);text-decoration:underline}
+.ax-market-form-error{color:#fda9a9;background:rgba(170,22,38,.12);padding:10px;border-radius:8px;font-size:12px}
+.ax-market-dialog-success{padding:30px 24px;text-align:center;display:grid;gap:12px;justify-items:center}.ax-market-dialog-success svg{color:var(--ax-accent)}
+.ax-market-dialog-success h3{font-size:22px}.ax-market-dialog-success p{color:var(--ax-muted);font-size:13px;line-height:1.6}.ax-market-dialog-success button{margin-top:10px}
+.ax-market-honeypot{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.ax-market-dialog .ax-market-note{display:flex;justify-content:center;align-items:center;gap:5px}
+@media(max-width:560px){.ax-market-overlay{padding:9px;align-items:flex-start}.ax-market-dialog{max-height:calc(100dvh - 18px);border-radius:14px}.ax-market-form-grid{grid-template-columns:1fr}.ax-market-dialog-head,.ax-market-dialog-body{padding:17px}.ax-market-dialog-head h2{font-size:21px}.ax-market-content{overflow-x:clip}.ax-market-intro:before{margin-bottom:18px}}

@@ -5,7 +5,8 @@
  */
 export const AUROX_BASE_CENTAVOS = 14900;
 export const AUROX_LIMIAR_DESCONTO_CENTAVOS = 50000;
-export const AUROX_DESCONTO_PROMO_PORCENTO = 50;
+export const AUROX_DESCONTO_PROMO_PORCENTO = 25;
+export const AUROX_DESCONTO_TETO_CENTAVOS = 18000;
 export const AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS = 6900;
 export const AUROX_NUMEROS_MAX_SIMULADOR = 30;
 
@@ -40,7 +41,9 @@ export function cotarAurox(modulos: readonly string[], numerosWhatsApp = 1): Cot
   const extrasWhatsAppCentavos = ids.has('whatsapp') ? (quantidade-1)*AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS : 0;
   const normalCentavos = AUROX_BASE_CENTAVOS + selecionados.reduce((s,m)=>s+m.centavos,0) + extrasWhatsAppCentavos;
   const elegivelPromocao = normalCentavos > AUROX_LIMIAR_DESCONTO_CENTAVOS;
-  const primeiroMesCentavos = elegivelPromocao ? Math.round(normalCentavos/2) : normalCentavos;
-  return {normalCentavos,primeiroMesCentavos,economiaCentavos:normalCentavos-primeiroMesCentavos,elegivelPromocao,extrasWhatsAppCentavos};
+  const descontoBruto = Math.round(normalCentavos * AUROX_DESCONTO_PROMO_PORCENTO / 100);
+  const economiaCentavos = elegivelPromocao ? Math.min(descontoBruto, AUROX_DESCONTO_TETO_CENTAVOS) : 0;
+  const primeiroMesCentavos = normalCentavos - economiaCentavos;
+  return {normalCentavos,primeiroMesCentavos,economiaCentavos,elegivelPromocao,extrasWhatsAppCentavos};
 }
 export const reais = (centavos:number) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}).format(centavos/100);

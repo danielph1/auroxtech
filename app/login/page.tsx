@@ -8,6 +8,7 @@ import {toast} from 'sonner';
 import {useAuth} from '@/contexts/auth-context';
 import {useTema} from '@/contexts/theme-context';
 import {AuroxPulseLoader} from '@/components/aurox-pulse-loader';
+import {AuroxSolicitarImplantacao} from '@/components/aurox-solicitar-implantacao';
 import {
   AUROX_MODULOS_PUBLICOS, AUROX_NUMEROS_MAX_SIMULADOR,
   AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS,cotarAurox,reais,
@@ -31,6 +32,7 @@ export default function LoginPage(){
  const {login,isAuthenticated}=useAuth();const {tema,setTema}=useTema();
  const claro=tema==='claro'||tema==='cristal';const router=useRouter();
  const [tela,setTela]=useState<'precos'|'entrar'>('precos');
+ const [solicitar,setSolicitar]=useState(false);
  const [loading,setLoading]=useState(false);const [mostrar,setMostrar]=useState(false);
  const [form,setForm]=useState({login:'',senha:''});
  const [modulos,setModulos]=useState<string[]>(['crm','financeiro']);
@@ -70,10 +72,10 @@ export default function LoginPage(){
   </section> : <section className="ax-market-content" aria-label="Simulador comercial AUROX">
     <div className="ax-market-intro">
       <span className="ax-market-kicker">TECNOLOGIA PARA QUEM VENDE VEÍCULOS</span>
-      <h1>Sua operação.<br/><em>Seu AUROX.</em></h1>
+      <h1>Mais vendas.<br/><em>Menos complicação.</em></h1>
       <p>Escolha os módulos que fazem sentido para a sua concessionária. Veja os valores antes de contratar, sem cadastro e sem compromisso.</p>
-      <div className="ax-market-points"><span><Check size={15}/> Estoque e equipe</span><span><Check size={15}/> Módulos independentes</span><span><Check size={15}/> Sem preço escondido</span></div>
-      <div className="ax-market-promo-info"><strong>1 mês de boas-vindas</strong><p>Mensalidades <b>acima de R$ 500</b> recebem <b>50% de desconto somente na primeira mensalidade</b>. A partir da segunda, vale o preço integral contratado.</p></div>
+      <div className="ax-market-points"><span><Check size={15}/> Estoque e equipe</span><span><Check size={15}/> Módulos independentes</span><span><Check size={15}/> Preço transparente</span></div>
+      <div className="ax-market-promo-info"><strong>Condição de boas-vindas</strong><p>Mensalidades <b>acima de R$ 500</b> recebem <b>25% de desconto no primeiro mês, limitado a R$ 180</b>. A partir do segundo mês, vale o preço integral contratado.</p></div>
     </div>
     <div className="ax-market-calculator">
      <div className="ax-market-calc-head"><div><span className="ax-market-kicker">MONTE SEU PACOTE</span><h2>Simule sua assinatura</h2></div><span className="ax-market-calc-pill">Mensal</span></div>
@@ -88,14 +90,16 @@ export default function LoginPage(){
      {modulos.includes('whatsapp')&&<div className="ax-market-numbers"><label htmlFor="ax-wa-numbers">Números de WhatsApp (simulação)</label><select id="ax-wa-numbers" value={numerosWhatsApp} onChange={e=>setNumerosWhatsApp(Number(e.target.value))}>{Array.from({length:AUROX_NUMEROS_MAX_SIMULADOR},(_,i)=><option key={i+1} value={i+1}>{i+1} {i===0?'número':'números'}</option>)}</select><small>Inclui 1 número. Cada adicional: {reais(AUROX_WHATSAPP_NUMERO_EXTRA_CENTAVOS)}/mês. Capacidade técnica de 30 sessões ainda depende de homologação.</small></div>}
      <div className="ax-market-summary">
       <div className="ax-market-summary-row"><span>Mensalidade regular</span><strong>{reais(cotacao.normalCentavos)}</strong></div>
-      {cotacao.elegivelPromocao ? <div className="ax-market-offer"><div><strong>Você desbloqueou 50% de desconto!</strong><span>Exclusivo da primeira mensalidade — 1 mês</span></div><div><small>Primeira mensalidade</small><strong>{reais(cotacao.primeiroMesCentavos)}</strong></div><p>Economia inicial: {reais(cotacao.economiaCentavos)}. Depois: {reais(cotacao.normalCentavos)}/mês.</p></div>
+      {cotacao.elegivelPromocao ? <div className="ax-market-offer"><div><strong>Você ganhou 25% de desconto!</strong><span>Só no primeiro mês · economia até R$ 180</span></div><div><small>Primeira mensalidade</small><strong>{reais(cotacao.primeiroMesCentavos)}</strong></div><p>Economia inicial: {reais(cotacao.economiaCentavos)}. Depois: {reais(cotacao.normalCentavos)}/mês.</p></div>
       : <p className="ax-market-tip">A promoção é válida para mensalidades <strong>acima</strong> de R$ 500. Total de R$ 500 não se qualifica.</p>}
       <details className="ax-market-countdown"><summary>Como funciona o prazo de 1 mês <ChevronDown size={15}/></summary><div><p>O prazo começa na data real de ativação do contrato. Abaixo é apenas uma simulação; <b>nenhum contrato é criado aqui</b>.</p><label htmlFor="ax-date">Simular início da contratação</label><input id="ax-date" type="date" value={inicioSimulado} onChange={e=>setInicioSimulado(e.target.value)}/><strong>{diasRestantes} dia(s) de promoção no exemplo</strong></div></details>
-      <button type="button" className="ax-market-primary" onClick={()=>setTela('entrar')}>Já sou cliente · Entrar <ArrowRight size={18}/></button>
+      <button type="button" className="ax-market-primary" onClick={()=>setSolicitar(true)}>Solicitar implantação <ArrowRight size={18}/></button>
+      <button type="button" className="ax-market-secondary" onClick={()=>setTela('entrar')}>Já sou cliente · Entrar no AUROX</button>
       <p className="ax-market-note">Valores de referência comercial. Sem cobrança nesta tela. Serviços em implantação dependem de liberação técnica, e domínio próprio é contratado à parte.</p>
      </div>
     </div>
   </section>}
+  <AuroxSolicitarImplantacao open={solicitar} onClose={()=>setSolicitar(false)} modulos={modulos} numerosWhatsApp={numerosWhatsApp}/>
   <footer className="ax-market-footer"><span>© AUROX · Gestão automotiva</span><nav aria-label="Links legais"><Link href="/termos">Termos</Link><Link href="/privacidade">Privacidade</Link><Link href="/ajuda">Suporte</Link></nav></footer>
  </main>;
 }
