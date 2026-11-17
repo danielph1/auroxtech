@@ -12,17 +12,19 @@ const BASE = String(process.env.MANU_APP_URL || '').replace(/\/$/, '');
 const SECRET = String(process.env.AUROX_WA_WORKER_SECRET || '');
 const PORT = Number(process.env.PORT || 3456);
 const ROOT = path.resolve(process.env.DATA_DIR || './.wa-data');
-const MAX = Math.max(1,Math.min(100,Number(process.env.MAX_SESSIONS||10)));
+const CHILD_ID = Number(process.env.AUROX_WA_ONLY_EMPRESA_ID || 0);
+const MAX = process.env.AUROX_WA_CHILD==='1' ? 1 : Math.max(1,Math.min(100,Number(process.env.MAX_SESSIONS||10)));
 if (SECRET.length < 32 || !/^https:\/\//.test(BASE)) {
   console.error('Configure MANU_APP_URL (HTTPS) e AUROX_WA_WORKER_SECRET com 32+ caracteres.');
   process.exit(1);
 }
-const SPOOL = path.join(ROOT, 'outbox');
+const SPOOL = CHILD_ID ? path.join(ROOT, 'outbox', String(CHILD_ID)) : path.join(ROOT, 'outbox');
 const KEY = createHash('sha256').update(`aurox-wa-outbox:v1:${SECRET}`).digest();
 const sessions = new Map();
 let spoolRunning = false;
 const digest = s=>createHash('sha256').update(String(s)).digest('hex');
 const safeId = id => Number.isSafeInteger(Number(id)) && Number(id)>0 && Number(id)<1e9 ? Number(id) : null;
+if (process.env.AUROX_WA_CHILD==='1' && !safeId(CHILD_ID)) throw new Error('Processo WhatsApp sem empresa válida');
 const url = (p) => `${BASE}/api/internal/aurox-whatsapp${p}`;
 
 function verified(h) {
@@ -61,9 +63,9 @@ async function statusEvent(s,status,phone='',error='') {
       s.status='erro';s.error='Número já conectado a outra empresa';
       try {await postToManu({type:'status',empresa_id:s.empresa_id,instancia_id:s.instancia_id,status:'erro',error:s.error});}catch{}
       s.halted=true;
-      try {await s.client?.logout();}catch{}
-      await s.client?.destroy().catch(()=>{});
-      sessions.delete(s.empresa_id);
+      // Conflito de NUMERO: encerra apenas o Chromium B, sem fazer logout remoto que possa afetar A.
+      try {await s.client?.destroy();}catch{}
+      if (sessions.get(s.empresa_id)===s) sessions.delete(s.empresa_id);
     }
   }
 }
@@ -301,7 +303,7 @@ async function startSession(empresa_id,instancia_id) {
     console.error(`[${empresa_id}] falha ao iniciar WhatsApp:`,e.message);
     await statusEvent(s,'erro','',e.message);
     await client.destroy().catch(()=>{});
-    sessions.delete(empresa_id);
+    if (sessions.get(empresa_id)===s) sessions.delete(empresa_id);
   });
   return {ok:true,status:'iniciando'};
 }
@@ -337,6 +339,7 @@ const server=http.createServer(async(req,res)=>{
   if(!match){sendJSON(res,404,{error:'Não encontrado'});return;}
   const id=safeId(match[1]),action=match[2];
   if(!id){sendJSON(res,400,{error:'Empresa inválida'});return;}
+  if(CHILD_ID && id!==CHILD_ID){sendJSON(res,403,{error:'Empresa não pertence a este processo'});return;}
   try {
     if(action==='status'&&req.method==='GET') {
       const s=sessions.get(id);
@@ -405,16 +408,29 @@ async function restore() {
     const r=await fetch(url('/bootstrap'),{headers:{Authorization:`Bearer ${SECRET}`},signal:AbortSignal.timeout(15000)});
     if(!r.ok)throw new Error(`Bootstrap HTTP ${r.status}`);
     const {sessions:target=[]}=await r.json();
-    for(const t of target.slice(0,MAX)){
+    for(const t of target.filter(t=>!CHILD_ID || Number(t.empresa_id)===CHILD_ID).slice(0,MAX)){
       try{await startSession(Number(t.empresa_id),String(t.instancia_id));}catch(e){console.warn('Restore:',e.message);}
     }
   }catch(e){console.warn('Restaurar instâncias:',e.message);}
 }
 await fs.mkdir(SPOOL,{recursive:true,mode:0o700});
 await fs.mkdir(path.join(ROOT,'auth'),{recursive:true,mode:0o700});
-server.listen(PORT,'0.0.0.0',()=>console.log(`Aurox-WhatsApp worker: porta ${PORT}; armazenamento persistente ${ROOT}`));
+server.listen(PORT,CHILD_ID?'127.0.0.1':'0.0.0.0',()=>console.log(`Aurox-WhatsApp empresa ${CHILD_ID||'legado'}: porta ${PORT}; armazenamento persistente ${ROOT}`));
 setInterval(()=>{void flushOutbox();},8000).unref();
 setInterval(()=>{void restore();},120000).unref();
 void restore();
 
-startPushDispatcher(BASE);
+if (!CHILD_ID) startPushDispatcher(BASE); // O gerenciador principal executa Push/Follow Up apenas uma vez.
+// Finalizar somente os Chromium desta instância, sem logout remoto nem exclusão de credenciais.
+let shuttingDown=false;
+async function gracefulShutdown(){
+  if(shuttingDown)return;
+  shuttingDown=true;
+  const deadline=setTimeout(()=>process.exit(0),7500);
+  for(const s of sessions.values())s.halted=true;
+  await Promise.allSettled([...sessions.values()].map(s=>s.client?.destroy()));
+  server.close(()=>process.exit(0));
+  deadline.unref();
+}
+process.once('SIGINT',()=>{void gracefulShutdown();});
+process.once('SIGTERM',()=>{void gracefulShutdown();});
