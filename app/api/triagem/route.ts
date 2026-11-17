@@ -14,6 +14,7 @@ async function expirar(empresaId: number | null, superadmin: boolean) {
           (CASE WHEN origem='aurox-whatsapp' THEN interval '10 seconds'
                 ELSE interval '10 seconds' END)
         AND ($1::boolean OR empresa_id=$2)
+        AND NOT EXISTS (SELECT 1 FROM public.empresas e WHERE e.id=triagem.empresa_id AND e.slug='aurox-plataforma')
       ORDER BY created_at LIMIT 50`,[superadmin,empresaId],
   );
   for(const t of rows) {
@@ -41,11 +42,28 @@ async function virarLead(triagemId:number,vendedorId:number,empresaPermitida:num
       await client.query('ROLLBACK');
       throw new Error('Triagem sem empresa: atribuição bloqueada');
     }
-    const {rows:[v]}=await client.query(
+    // Primeiro verifica vendedor operacional normal, com isolamento por empresa.
+    let {rows:[v]}=await client.query(
       `SELECT id,empresa_id FROM public.vendedores v WHERE id=$1 AND COALESCE(v.ativo,FALSE)=TRUE
           AND EXISTS(SELECT 1 FROM public.usuarios u WHERE u.vendedor_id=v.id AND u.empresa_id=v.empresa_id
             AND LOWER(u.tipo)='vendedor' AND COALESCE(u.ativo,FALSE)
             AND LOWER(COALESCE(u.status,'ativo'))='ativo')`,[vendedorId]);
+    // Exceção EXCLUSIVA da empresa AUROX: os superadmins existentes têm representação
+    // em vendedores via tabela de vínculo, sem alterar suas contas nem exigir loja.
+    {
+      const {rows:[interna]}=await client.query(`SELECT 1 FROM public.empresas WHERE id=$1 AND slug='aurox-plataforma'`,[t.empresa_id]);
+      if(interna){
+        const {rows:[responsavel]}=await client.query(`SELECT v.id,v.empresa_id
+          FROM public.aurox_atendentes_internos a
+          JOIN public.vendedores v ON v.id=a.vendedor_id AND v.empresa_id=a.empresa_id
+          JOIN public.usuarios u ON u.id=a.usuario_id
+          WHERE v.id=$1 AND a.empresa_id=$2 AND COALESCE(v.ativo,FALSE)
+            AND LOWER(u.tipo)='superadmin' AND COALESCE(u.ativo,FALSE)
+            AND LOWER(COALESCE(u.status,'ativo'))='ativo'`,[vendedorId,t.empresa_id]);
+        // Na empresa interna, não aceitar vendedores comuns nem de outra empresa.
+        v=responsavel;
+      }
+    }
     if(!v || !v.empresa_id || Number(t.empresa_id)!==Number(v.empresa_id) ||
        (empresaPermitida!=null && Number(v.empresa_id)!==empresaPermitida)) {
       await client.query('ROLLBACK');throw new Error('vendedor não pertence à empresa do lead');
@@ -126,6 +144,8 @@ export async function POST(req:NextRequest) {
       WHERE id=$1 AND ($2::boolean OR empresa_id=$3)`,[id,actor.tipo==='superadmin',actor.empresa_id]);
     if(!alvo) return NextResponse.json({error:'triagem não encontrada na sua empresa'},{status:404});
     if(!vendedorId&&b?.loja) {
+      const {rows:interna}=await query<{id:number}>(`SELECT id FROM public.empresas WHERE id=$1 AND slug='aurox-plataforma'`,[alvo.empresa_id]);
+      if(interna.length)return NextResponse.json({error:'Selecione Daniel ou Alexandre como responsável da AUROX'},{status:400});
       const v=await queryOne<{id:number}>(
         `SELECT id FROM public.vendedores v WHERE UPPER(COALESCE(v.loja,''))=UPPER($1)
           AND COALESCE(v.ativo,FALSE)=TRUE

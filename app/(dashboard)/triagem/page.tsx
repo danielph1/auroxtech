@@ -15,10 +15,6 @@ export default function TriagemPage() {
     refetchInterval: 3000,
     enabled: (['admin','superadmin','marketing','gerente'].includes(String(user?.tipo || ''))),
   });
-  const { data: vendedores = [] } = useQuery({
-    queryKey: ['vendedores'],
-    queryFn: async () => (await api.get('/equipe')).data,
-  });
 
   if (!['admin','superadmin','marketing','gerente'].includes(String(user?.tipo || ''))) return <p className="text-muted-foreground">Acesso restrito.</p>;
 
@@ -30,7 +26,7 @@ export default function TriagemPage() {
       </p>
       {(Array.isArray(data) ? data : []).length === 0 && <p className="text-muted-foreground">Nenhum lead na fila.</p>}
       {(Array.isArray(data) ? data : []).map((t: any) => (
-        <Item key={t.id} t={t} vendedores={vendedores} onOk={() => qc.invalidateQueries({ queryKey: ['triagem'] })} />
+        <Item key={t.id} t={t} onOk={() => qc.invalidateQueries({ queryKey: ['triagem'] })} />
       ))}
     </div>
   );
@@ -61,14 +57,22 @@ function MidiaWhatsApp({ id }: { id: number }) {
   return null;
 }
 
-function Item({ t, vendedores, onOk }: { t: any; vendedores: any; onOk: () => void }) {
+function Item({ t, onOk }: { t: any; onOk: () => void }) {
   const [vendedor, setVendedor] = useState('');
   const [loja, setLoja] = useState('');
-  const todos = Array.isArray(vendedores) ? vendedores : vendedores?.vendedores || [];
-  const lista = loja ? todos.filter((v: any) => String(v.loja || '').toUpperCase() === loja.toUpperCase()) : todos;
-
+  // O escopo é calculado pelo empresa_id do PRÓPRIO lead, não do superadmin.
+  const empresaId=Number(t.empresa_id);
+  const {data: todos=[]}=useQuery<any[]>({
+    queryKey:['triagem-atendentes',empresaId],
+    queryFn:async()=> (await api.get('/triagem/atendentes',{params:{empresa_id:empresaId}})).data,
+    enabled:Number.isSafeInteger(empresaId)&&empresaId>0,
+    staleTime:30_000,
+  });
+  const lista=loja?todos.filter((v:any)=>String(v.loja||'').toUpperCase()===loja.toUpperCase()):todos;
+  const lojas=Array.from(new Set(todos.map((v:any)=>String(v.loja||'').toUpperCase()).filter(Boolean)));
   async function atribuir() {
-    await api.post('/triagem', { id: t.id, vendedor_id: vendedor || undefined, loja: loja || undefined });
+    if(!vendedor)return;
+    await api.post('/triagem',{id:t.id,vendedor_id:Number(vendedor)});
     onOk();
   }
 
@@ -93,10 +97,10 @@ function Item({ t, vendedores, onOk }: { t: any; vendedores: any; onOk: () => vo
           <SelectTrigger className="w-32"><SelectValue placeholder="Loja" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
-            {['381', '764', 'NINA'].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            {lojas.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" onClick={atribuir}>Atribuir</Button>
+        <Button size="sm" disabled={!vendedor} onClick={atribuir}>Atribuir</Button>
       </div>
     </div>
   );
