@@ -17,7 +17,7 @@ import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais} from '@/lib/aurox-precos-public
 import './aurox-precos-login.css';
 
 const modulosIcones:Record<string,typeof CarFront>={
- crm:MessageSquareText,financeiro:Wallet,anuncios:Globe2,whatsapp:MessageSquareText,
+ crm:MessageSquareText,financeiro:Wallet,fiscal:Wallet,anuncios:Globe2,whatsapp:MessageSquareText,
  oficina:CarFront,inteligencia:ChartNoAxesCombined,parceiros:Handshake,site:Globe2,
 };
 const recursos=[
@@ -59,6 +59,7 @@ export default function LoginPage(){
   </header>
   {tela==='entrar' ? <section className="ax-market-auth" aria-label="Acessar minha conta">
    <span className="ax-market-kicker"><ShieldCheck size={15}/> ACESSO À PLATAFORMA</span>
+   <div className="ax-market-slogan ax-market-slogan-auth"><strong>AUROX</strong><span>Faça seu melhor com a melhor tecnologia.</span></div>
    <h1>Bem-vindo de volta.</h1><p>Acesse sua operação com segurança.</p>
    <form onSubmit={entrar} className="ax-market-auth-form">
     <label htmlFor="ax-user">Usuário</label><input id="ax-user" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={form.login} placeholder="Seu login" onChange={e=>setForm(p=>({...p,login:e.target.value}))}/>
@@ -71,6 +72,7 @@ export default function LoginPage(){
    <section className="ax-market-hero" aria-label="Conheça a AUROX">
     <div className="ax-market-hero-copy">
      <span className="ax-market-kicker"><span className="ax-market-kicker-line"/> SUA REVENDA, MAIS INTELIGENTE</span>
+     <div className="ax-market-slogan"><strong>AUROX</strong><span>Faça seu melhor com a melhor tecnologia.</span></div>
      <h1>O próximo nível da <em>gestão automotiva.</em></h1>
      <p>Do primeiro contato à venda. O AUROX reúne estoque, atendimento, equipe e gestão em um único ambiente — pensado para quem vive o dia a dia da concessionária.</p>
      <div className="ax-market-hero-actions"><button type="button" className="ax-market-primary" onClick={()=>navegar('ax-recursos')}>Descobrir o AUROX <ArrowRight size={18}/></button><button type="button" className="ax-market-outline" onClick={()=>navegar('ax-planos')}>Ver planos e valores</button></div>

@@ -18,6 +18,7 @@ export type AuroxModuloPublico = {
 export const AUROX_MODULOS_PUBLICOS: readonly AuroxModuloPublico[] = [
   {id:'crm', nome:'CRM e funil de leads', descricao:'Triagem, atendimento, follow-up e tarefas', centavos:14900, estado:'disponivel'},
   {id:'financeiro', nome:'Financeiro', descricao:'Contas, parcelas e faturamento', centavos:17900, estado:'disponivel'},
+  {id:'fiscal', nome:'Fiscal e Tributos', descricao:'Simulador gerencial, cobrado à parte', centavos:8900, estado:'implantacao'},
   {id:'anuncios', nome:'Integrações de anúncios', descricao:'Publicação e captação conforme homologação', centavos:8900, estado:'implantacao'},
   {id:'whatsapp', nome:'Aurox-WhatsApp', descricao:'Uma conexão por empresa; estabilidade em validação', centavos:19900, estado:'implantacao'},
   {id:'oficina', nome:'Oficina e documental', descricao:'Preparação de veículos e documentos', centavos:9900, estado:'disponivel'},

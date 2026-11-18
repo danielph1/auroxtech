@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { queryOne } from './db';
 import { STATUS_LOGIN_OK } from './tenant';
 import { permiteRota } from './permissoes-acesso';
+import {recursoAcaoDaRota,temPermissaoGranular} from './permissoes-granulares';
 
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-secret' : '');
 
@@ -101,6 +102,9 @@ export async function requireUser(req: NextRequest): Promise<SessionUser | null>
   // Barreira central para todas as rotas de API protegidas por requireUser.
   // Mesmo usando URL diretamente, uma conta operacional nao acessa credito/chat/faturamento.
   if (!permiteRota(u.tipo, req.nextUrl.pathname)) return null;
+  const granular=recursoAcaoDaRota(req.nextUrl.pathname,req.method);
+  if(granular && (!await temPermissaoGranular(u,granular.recurso,'visualizar') ||
+     (granular.acao!=='visualizar' && !await temPermissaoGranular(u,granular.recurso,granular.acao))))return null;
   return u;
 }
 

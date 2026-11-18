@@ -2,7 +2,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import {usePathname} from 'next/navigation';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
+import {api} from '@/lib/api';
+import {recursoDaPagina} from '@/lib/permissoes-granulares';
 import {useAuth} from '@/contexts/auth-context';
 import {BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2,Handshake} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
@@ -24,7 +26,7 @@ const S=[
  {href:'/anuncios',label:'Anúncios',icon:Megaphone,roles:M},{href:'/anuncio-coletivo',label:'Anúncio coletivo',icon:Megaphone,roles:M},
  {href:'/processos',label:'Transferências',icon:ArrowLeftRight,roles:D},{href:'/faturamento',label:'Faturamento',icon:Receipt,roles:F}]},
  {id:'admin',title:'Administração',links:[{href:'/equipe',label:'Equipe',icon:Users,roles:G},
- {href:'/gestao-usuarios',label:'Usuários',icon:BookUser,roles:AD},{href:'/financas',label:'Finanças',icon:Wallet,roles:['admin','superadmin']},
+ {href:'/gestao-usuarios',label:'Usuários',icon:BookUser,roles:AD},{href:'/permissoes',label:'Permissões',icon:ShieldCheck,roles:['admin','superadmin']},{href:'/financas',label:'Finanças',icon:Wallet,roles:['admin','superadmin']},
  {href:'/historico',label:'Auditoria',icon:History,roles:M},{href:'/integracoes',label:'Integrações',icon:PlugZap,roles:AD},
  {href:'/parcerias',label:'Rede de Parceiros',icon:Handshake,roles:['admin','superadmin']},
  {href:'/aurox',label:'Gestão Aurox',icon:Building2,roles:['superadmin']},
@@ -32,11 +34,13 @@ const S=[
 ] as {id:string;title:string;links:Item[]}[];
 export function SidebarNav({onNavigate}:{onNavigate?:()=>void}){
  const path=usePathname()||'';const {user,logout}=useAuth();const cargo=String(user?.tipo||'').toLowerCase();
- const [fold,setFold]=useState<Record<string,boolean>>({principal:true,leads:true});
+  const [fold,setFold]=useState<Record<string,boolean>>({principal:true,leads:true});
+  const [bloqueadas,setBloqueadas]=useState<string[]>([]);
+  useEffect(()=>{if(!user?.id)return;let live=true;void api.get('/permissoes',{params:{minhas:1}}).then(r=>{if(live)setBloqueadas(Array.isArray(r.data?.bloqueadas)?r.data.bloqueadas:[])}).catch(()=>{if(live)setBloqueadas([])});return()=>{live=false}},[user?.id,user?.tipo,user?.empresa_id]);
  const active=(p:string)=>path===p||path.startsWith(p+'/');
  return <aside className="nova-sidebar" aria-label="Menu principal">
   <Link href="/inicio" className="nova-brand" onClick={onNavigate}><span className="nova-brand-mark"><Image src="/aurox-logo.png" alt="" width={42} height={42} priority/></span><span><strong>AUROX</strong><small>GESTÃO AUTOMOTIVA</small></span></Link>
-  <div className="nova-sidebar-scroll">{S.map(section=>{const links=section.links.filter(l=>!l.roles||l.roles.includes(cargo));if(!links.length)return null;
+  <div className="nova-sidebar-scroll">{S.map(section=>{const links=section.links.filter(l=>(!l.roles||l.roles.includes(cargo))&&(!recursoDaPagina(l.href)||!bloqueadas.includes(recursoDaPagina(l.href)!)));if(!links.length)return null;
    const open=fold[section.id]??links.some(l=>active(l.href));
    return <section key={section.id} className="nova-nav-section"><button type="button" onClick={()=>setFold(x=>({...x,[section.id]:!open}))} aria-expanded={open} className="nova-nav-section-title">{section.title}<ChevronDown size={14} className={open?'nova-chevron-open':''}/></button>
     {open&&<nav className="nova-nav-links">{links.map(l=>{const Icon=l.icon;return <Link href={l.href} onClick={onNavigate} key={l.href} aria-current={active(l.href)?'page':undefined} className={'nova-nav-link'+(active(l.href)?' is-active':'')}><Icon size={18} strokeWidth={active(l.href)?2.15:1.8}/><span>{l.label}</span></Link>})}</nav>}
