@@ -3,7 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {useQuery} from '@tanstack/react-query';
 import {Area,AreaChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
-import {ArrowUpRight,BarChart3,CalendarDays,CheckCheck,ClipboardCheck,FileText,MessageCircleMore,RefreshCw,Users} from 'lucide-react';
+import {ArrowUpRight,BarChart3,CalendarDays,CarFront,CheckCheck,ClipboardCheck,FileText,MessageCircleMore,RefreshCw,Users} from 'lucide-react';
 import {api} from '@/lib/api';import {useAuth} from '@/contexts/auth-context';
 import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import {LeadQuickDetail} from '@/components/lead-quick-detail';
@@ -14,19 +14,34 @@ function asArray<T>(x:any):T[]{return Array.isArray(x)?x:[]}
 function number(v:unknown){return Number(v||0).toLocaleString('pt-BR');}
 function Metric({label,val,sub,Icon,to}:{label:string;val:string;sub:string;Icon:any;to:string}){return <Link className="nova-surface nova-metric-card hover:border-primary/40" href={to}><div className="nova-metric-top"><span>{label}</span><span className="nova-metric-icon"><Icon size={18}/></span></div><strong>{val}</strong><small>{sub}</small></Link>}
 export default function InicioPage(){
- const {user}=useAuth();const {pode:acessoModulo}=useAuroxModulos();const cargo=String(user?.tipo||'').toLowerCase();const superadmin=cargo==='superadmin';
+ const {user}=useAuth();const {pode:acessoModulo,carregando:carregandoModulos}=useAuroxModulos();const cargo=String(user?.tipo||'').toLowerCase();const superadmin=cargo==='superadmin';
  const comercial=['superadmin','admin','gerente','marketing','vendedor'].includes(cargo);
- const podeMetricas=['gerente','admin','superadmin','marketing'].includes(cargo);
+ // AUROX_LOGIN_PLANOS_20261117: jamais consultar dados comerciais sem o modulo E a permissao individual.
+ const permissoesQ=useQuery<{bloqueadas:string[]}>({
+  queryKey:['inicio-minhas-permissoes',user?.id,user?.empresa_id],
+  enabled:!!user?.id&&!superadmin,
+  queryFn:async()=> (await api.get('/permissoes',{params:{minhas:1}})).data,
+  staleTime:15000,refetchOnWindowFocus:true,retry:1,
+ });
+ const bloqueadas=Array.isArray(permissoesQ.data?.bloqueadas)?permissoesQ.data.bloqueadas:[];
+ const autorizado=(recurso:string)=>superadmin||(permissoesQ.isSuccess&&!bloqueadas.includes(recurso));
+ const crmDisponivel=acessoModulo('/painel')&&autorizado('leads');
+ const fichasDisponiveis=acessoModulo('/fichas')&&autorizado('fichas');
+ const estoqueDisponivel=acessoModulo('/estoque')&&autorizado('estoque');
+ const tarefasDisponiveis=acessoModulo('/tarefas');
+ const financeiroDisponivel=acessoModulo('/financas')&&autorizado('financeiro');
+ const podeMetricas=['gerente','admin','superadmin','marketing'].includes(cargo)&&acessoModulo('/metricas')&&autorizado('metricas');
+ const verificando=carregandoModulos||(!superadmin&&!!user?.id&&permissoesQ.isPending);
  const [empresa,setEmpresa]=useState('');
  const [leadAberto,setLeadAberto]=useState<number|null>(null);
  const empresasQ=useQuery({queryKey:['inicio-empresas',user?.id],enabled:superadmin,queryFn:async()=>asArray<{id:number;nome:string}>((await api.get('/faturamento/empresas')).data)});
  useEffect(()=>{if(superadmin&&empresasQ.data?.length&&!empresa)setEmpresa(String(empresasQ.data[0].id));},[superadmin,empresasQ.data,empresa]);
  const empresaId=superadmin?Number(empresa):Number(user?.empresa_id||0);
- const pronto=comercial&&empresaId>0&&acessoModulo('/painel');
+ const pronto=comercial&&empresaId>0&&crmDisponivel;
  const leadsQ=useQuery({queryKey:['inicio-leads',empresaId,user?.id],enabled:pronto,queryFn:async()=>asArray<Lead>((await api.get('/leads',{params:{filtro:'todos',periodo:'todas',empresa_id:superadmin?empresaId:undefined}})).data),refetchInterval:60000});
  const statsQ=useQuery({queryKey:['inicio-estatisticas',empresaId,user?.id],enabled:pronto,queryFn:async()=> (await api.get('/leads/stats',{params:{periodo:'mes',empresa_id:superadmin?empresaId:undefined}})).data,refetchInterval:60000});
- const tasksQ=useQuery({queryKey:['inicio-tarefas',user?.id],enabled:!!user&&!superadmin&&acessoModulo('/tarefas'),queryFn:async()=>asArray<Tarefa>((await api.get('/tarefas')).data),refetchInterval:60000});
- const equipeQ=useQuery({queryKey:['inicio-equipe',empresaId],enabled:empresaId>0&&['superadmin','admin','gerente'].includes(cargo),queryFn:async()=>asArray<any>((await api.get('/equipe',{params:{empresa_id:superadmin?empresaId:undefined}})).data)});
+ const tasksQ=useQuery({queryKey:['inicio-tarefas',user?.id],enabled:!!user&&!superadmin&&tarefasDisponiveis,queryFn:async()=>asArray<Tarefa>((await api.get('/tarefas')).data),refetchInterval:60000});
+ const equipeQ=useQuery({queryKey:['inicio-equipe',empresaId],enabled:pronto&&['superadmin','admin','gerente'].includes(cargo),queryFn:async()=>asArray<any>((await api.get('/equipe',{params:{empresa_id:superadmin?empresaId:undefined}})).data)});
  const dados=statsQ.data||{},leads=leadsQ.data||[],tarefas=tasksQ.data||[];
  const hoje=new Date();const keyMes=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
  const chart=useMemo(()=>Array.from({length:6},(_,idx)=>{const d=new Date(hoje.getFullYear(),hoje.getMonth()-5+idx,1),key=keyMes(d);return {mes:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),leads:leads.filter(l=>String(l.data_lead||'').slice(0,7)===key).length,vendas:leads.filter(l=>String(l.data_venda||'').slice(0,7)===key).length};}),[leads]);
@@ -37,12 +52,12 @@ export default function InicioPage(){
    <div className="flex items-end gap-2">{superadmin&&<label className="nova-field">Empresa<select value={empresa} onChange={e=>setEmpresa(e.target.value)}><option value="">Selecione</option>{(empresasQ.data||[]).map(x=><option key={x.id} value={String(x.id)}>{x.nome}</option>)}</select></label>}{acessoModulo('/agenda')&&<Link className="nova-button" href="/agenda"><CalendarDays size={17}/>Minha agenda</Link>}</div>
   </div>
   {!comercial&&<div className="nova-surface p-5 text-sm text-muted-foreground">Indicadores comerciais dependem do CRM contratado e das permissões da sua conta.</div>}
-  {comercial&&!pronto&&acessoModulo('/painel')&&<div className="nova-surface p-5 text-sm">Selecione a empresa para consultar os indicadores sem misturar dados de outras concessionárias.</div>}
-  {!acessoModulo('/painel')&&<div className="nova-surface p-5 text-sm text-muted-foreground">Sua empresa tem acesso aos serviços selecionados no contrato. Estoque e equipe permanecem disponíveis no AUROX Base.</div>}
+  {comercial&&!pronto&&crmDisponivel&&<div className="nova-surface p-5 text-sm">Selecione a empresa para consultar os indicadores sem misturar dados de outras concessionárias.</div>}
+  {!verificando&&!crmDisponivel&&<div className="nova-surface p-5 text-sm text-muted-foreground">Sua área inicial mostra somente os serviços autorizados. Estoque e equipe seguem disponíveis conforme seu cargo e permissões, mesmo sem módulos adicionais.</div>}
   {pronto&&<><div className="nova-metric-grid">
    <Metric label="Leads no mês" val={statsQ.isLoading?'…':number(dados.total_leads)} sub="Leads recebidos no período" Icon={Users} to="/painel"/>
    <Metric label="Respondidos" val={statsQ.isLoading?'…':number(dados.total_responderam)} sub="Atendimento registrado" Icon={MessageCircleMore} to="/painel"/>
-   <Metric label="Fichas geradas" val={statsQ.isLoading?'…':number(dados.total_fichas)} sub="Crédito em acompanhamento" Icon={FileText} to="/fichas"/>
+   {fichasDisponiveis&&<Metric label="Fichas geradas" val={statsQ.isLoading?'…':number(dados.total_fichas)} sub="Crédito em acompanhamento" Icon={FileText} to="/fichas"/>}
    <Metric label="Vendas" val={statsQ.isLoading?'…':number(dados.total_vendidos)} sub="Vendas concluídas no CRM" Icon={CheckCheck} to="/painel"/>
   </div>
   <div className="nova-dashboard-grid"><section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Evolução comercial</h2><p>Leads e vendas por mês, a partir dos registros acessíveis.</p></div>{podeMetricas&&acessoModulo('/metricas')&&<Link href="/metricas" className="nova-secondary-link">Detalhes <ArrowUpRight size={14}/></Link>}</div>
@@ -50,13 +65,14 @@ export default function InicioPage(){
   </section><section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Precisam de atenção</h2><p>Atalhos para leads ainda não respondidos.</p></div><Link className="nova-secondary-link" href="/painel">Ver leads <ArrowUpRight size={14}/></Link></div>
    {naoRespondidos.length?naoRespondidos.map(l=><button type="button" onClick={()=>setLeadAberto(l.id)} className="nova-list-row w-full text-left" key={l.id}><span className="nova-list-icon"><Users size={17}/></span><span className="min-w-0 flex-1"><strong className="truncate">{l.nome_lead||`Lead #${l.id}`}</strong><small>{l.origem||'Origem não informada'} · Aguardando resposta</small></span><ArrowUpRight size={16} className="text-muted-foreground"/></button>):<div className="nova-empty">{leadsQ.isLoading?'Carregando dados…':'Nenhum lead pendente de resposta no recorte.'}</div>}
   </section></div></>}
-  <div className="nova-dashboard-grid">{acessoModulo('/tarefas')&&<section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Tarefas em aberto</h2><p>Acompanhamento da rotina da equipe.</p></div><Link href="/tarefas" className="nova-secondary-link">Todas as tarefas <ArrowUpRight size={14}/></Link></div>
+  <div className="nova-dashboard-grid">{tarefasDisponiveis&&<section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Tarefas em aberto</h2><p>Acompanhamento da rotina da equipe.</p></div><Link href="/tarefas" className="nova-secondary-link">Todas as tarefas <ArrowUpRight size={14}/></Link></div>
    {tasksQ.isError?<div className="nova-empty">Não foi possível carregar tarefas.</div>:tarefasPendentes.length?tarefasPendentes.slice(0,5).map(t=><Link href="/tarefas" className="nova-list-row" key={t.id}><span className="nova-list-icon"><ClipboardCheck size={17}/></span><span className="min-w-0"><strong>{t.titulo||`Tarefa #${t.id}`}</strong><small>{t.destinatario_nome||'Destinatário registrado no sistema'} · Pendente</small></span></Link>):<div className="nova-empty">{superadmin?'Consulte Tarefas para ver todas as empresas sem misturar os indicadores desta empresa.':'Nenhuma tarefa pendente.'}</div>}
   </section>}<section className="nova-surface nova-panel-pad"><div className="nova-panel-head"><div><h2>Atalhos do dia</h2><p>Ferramentas frequentes do seu trabalho.</p></div></div>
     {acessoModulo('/agenda')&&<Link href="/agenda" className="nova-list-row"><span className="nova-list-icon"><CalendarDays size={18}/></span><span><strong>Agenda e compromissos</strong><small>{newVisits.length} visita(s) encontrada(s) para hoje</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
-    {acessoModulo('/tarefas')&&<Link href="/tarefas" className="nova-list-row"><span className="nova-list-icon"><ClipboardCheck size={18}/></span><span><strong>Tarefas e retornos</strong><small>{tarefasPendentes.length} tarefa(s) pendente(s)</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
-    {['admin','gerente','superadmin'].includes(cargo)&&<Link href="/equipe" className="nova-list-row"><span className="nova-list-icon"><BarChart3 size={18}/></span><span><strong>Equipe</strong><small>{equipeQ.data?.length||0} colaborador(es) na consulta atual</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
-    {['admin','superadmin'].includes(cargo)&&acessoModulo('/financas')&&<Link href="/financas" className="nova-list-row"><span className="nova-list-icon"><RefreshCw size={18}/></span><span><strong>Finanças</strong><small>Contas e recebimentos documentados</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
+    {tarefasDisponiveis&&<Link href="/tarefas" className="nova-list-row"><span className="nova-list-icon"><ClipboardCheck size={18}/></span><span><strong>Tarefas e retornos</strong><small>{tarefasPendentes.length} tarefa(s) pendente(s)</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
+    {['admin','gerente','superadmin'].includes(cargo)&&<Link href="/equipe" className="nova-list-row"><span className="nova-list-icon"><BarChart3 size={18}/></span><span><strong>Equipe</strong><small>{pronto?`${equipeQ.data?.length||0} colaborador(es) na consulta atual`:'Cadastros e profissionais da empresa'}</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
+    {['admin','superadmin'].includes(cargo)&&financeiroDisponivel&&<Link href="/financas" className="nova-list-row"><span className="nova-list-icon"><RefreshCw size={18}/></span><span><strong>Finanças</strong><small>Contas e recebimentos documentados</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
+    {estoqueDisponivel&&<Link href="/estoque" className="nova-list-row"><span className="nova-list-icon"><CarFront size={18}/></span><span><strong>Estoque de veículos</strong><small>Operação básica da concessionária</small></span><ArrowUpRight className="ml-auto" size={16}/></Link>}
    </section></div>
   {leadAberto!==null&&<LeadQuickDetail leadId={leadAberto} onClose={()=>setLeadAberto(null)}/>}
  </div>;

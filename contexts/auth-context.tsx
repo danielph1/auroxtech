@@ -24,17 +24,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // AUROX_LOGIN_PLANOS_20261117: verifica a IDENTIDADE sem confundir 401 de modulo com logout.
   useEffect(() => {
+    let ativo = true;
+    const tokenInicial = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!tokenInicial) {
+      window.localStorage.removeItem(USER_STORAGE_KEY);
+      setUser(null);
+      setIsLoading(false);
+      return () => { ativo = false; };
+    }
     try {
-      const stored = window.localStorage.getItem(USER_STORAGE_KEY);
-      if (stored) setUser(JSON.parse(stored));
-    } catch {}
-    api.get('/auth/me').then((r) => {
-      if (r.data) {
-        setUser(r.data);
-        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(r.data));
+      const armazenado = window.localStorage.getItem(USER_STORAGE_KEY);
+      if (armazenado) setUser(JSON.parse(armazenado));
+    } catch { window.localStorage.removeItem(USER_STORAGE_KEY); }
+    void api.get('/auth/me').then((res) => {
+      // Uma resposta antiga jamais deve sobrescrever uma sessao nova.
+      if (!ativo || window.localStorage.getItem(TOKEN_STORAGE_KEY) !== tokenInicial) return;
+      if (res.data?.id) {
+        setUser(res.data);
+        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.data));
       }
-    }).catch(() => {}).finally(() => setIsLoading(false));
+    }).catch((err: {response?: {status?: number}}) => {
+      if (!ativo || window.localStorage.getItem(TOKEN_STORAGE_KEY) !== tokenInicial) return;
+      if (err?.response?.status === 401) {
+        // Aqui o backend confirmou token/conta invalido. Acesso a modulos
+        // nao passa por essa rota e nao pode disparar este logout.
+        setStoredToken(null);
+        window.localStorage.removeItem(USER_STORAGE_KEY);
+        setUser(null);
+      }
+      // Falha 5xx/rede nao revoga um token: as APIs seguem protegidas.
+    }).finally(() => {
+      if (ativo && (window.localStorage.getItem(TOKEN_STORAGE_KEY) === tokenInicial ||
+                     !window.localStorage.getItem(TOKEN_STORAGE_KEY))) setIsLoading(false);
+    });
+    return () => { ativo = false; };
   }, []);
 
   const login = useCallback(async (payload: LoginPayload) => {

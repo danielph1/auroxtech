@@ -29,20 +29,12 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Interceptor de resposta: trata 401 globalmente
+// AUROX_LOGIN_PLANOS_20261117: respostas 401 de APIs de modulos NAO invalidam uma sessao.
+// Apenas /auth/me confirma se o token realmente expirou ou a conta foi revogada.
+// As APIs continuam protegidas por autorizacao no servidor.
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (typeof window !== 'undefined' && error.response?.status === 401) {
-      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-      window.localStorage.removeItem(USER_STORAGE_KEY);
-      // redireciona apenas se nao estivermos na pagina de login
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
-    }
-    return Promise.reject(error);
-  },
+  (error: AxiosError) => Promise.reject(error),
 );
 
 export function getStoredToken(): string | null {

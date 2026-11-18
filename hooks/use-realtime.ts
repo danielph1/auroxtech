@@ -5,6 +5,8 @@
  * Tarefas/metas: só quando chega notificação do tipo (não pesa).
  */
 import { useEffect } from 'react';
+import {useAuth} from '@/contexts/auth-context';
+import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import { useQueryClient } from '@tanstack/react-query';
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
 
@@ -25,8 +27,14 @@ function getClient() {
 /** Inscreve nas tabelas críticas e invalida queries do React Query */
 export function useRealtimeCore() {
   const qc = useQueryClient();
+  const {user}=useAuth();
+  const {pode,carregando}=useAuroxModulos();
+  const crmAtivo=pode('/painel');
+  const inteligenciaAtiva=pode('/metas');
 
   useEffect(() => {
+    // AUROX_LOGIN_PLANOS_20261117: nao assinar dados de um servico ausente do contrato.
+    if (!user?.id || carregando) return;
     const sb = getClient();
     if (!sb) return;
 
@@ -48,9 +56,11 @@ export function useRealtimeCore() {
     };
 
     // prioritário
-    sub('rt-chat', 'chat_geral_mensagens', ['chat', 'conversas']);
-    sub('rt-leads', 'leads', ['leads', 'stats', 'conversas']);
-    sub('rt-triagem', 'triagem', ['triagem', 'leads']);
+    if(crmAtivo){
+      sub('rt-chat', 'chat_geral_mensagens', ['chat', 'conversas']);
+      sub('rt-leads', 'leads', ['leads', 'stats', 'conversas']);
+      sub('rt-triagem', 'triagem', ['triagem', 'leads']);
+    }
     sub('rt-notif', 'notificacoes', ['avisos', 'notificacoes'], (payload) => {
       // app aberto mas em segundo plano / tela apagada: mostra notificação local
       try {
@@ -64,8 +74,8 @@ export function useRealtimeCore() {
     });
 
     // leve: só invalida listas se alguém mexer (pouco frequente)
-    sub('rt-tarefas', 'tarefas', ['tarefas']);
-    sub('rt-metas', 'metas', ['metas']);
+    if(crmAtivo) sub('rt-tarefas', 'tarefas', ['tarefas']);
+    if(inteligenciaAtiva) sub('rt-metas', 'metas', ['metas']);
 
     return () => {
       for (const ch of channels) {
@@ -74,7 +84,7 @@ export function useRealtimeCore() {
         } catch { /* ok */ }
       }
     };
-  }, [qc]);
+  }, [qc,user?.id,carregando,crmAtivo,inteligenciaAtiva]);
 }
 
 /** Polling de backup só no chat (caso Realtime falhe) */
