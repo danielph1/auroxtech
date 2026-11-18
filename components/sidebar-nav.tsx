@@ -4,7 +4,7 @@ import Image from 'next/image';
 import {usePathname} from 'next/navigation';
 import {useEffect,useState} from 'react';
 import {api} from '@/lib/api';
-import {recursoDaPagina} from '@/lib/permissoes-granulares';
+import {recursoDaPagina} from '@/lib/permissoes-granulares-client';
 import {useAuth} from '@/contexts/auth-context';
 import {BarChart3,BookUser,CalendarDays,CarFront,ChartNoAxesCombined,ChevronDown,CircleHelp,ClipboardCheck,Clock3,FileText,FolderHeart,History,Home,Inbox,LayoutDashboard,LogOut,Megaphone,MessageCircleMore,PlusCircle,Receipt,Settings2,ShieldCheck,Star,Target,Users,Wallet,Wrench,ArrowLeftRight,PlugZap,Building2,Handshake} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';

@@ -16,7 +16,7 @@ import {AvisosFlutuante} from '@/components/avisos-flutuante';
 import {BottomNav} from '@/components/bottom-nav';
 import {useAuth} from '@/contexts/auth-context';
 import {permiteRota} from '@/lib/permissoes-acesso';
-import {recursoDaPagina} from '@/lib/permissoes-granulares';
+import {recursoDaPagina} from '@/lib/permissoes-granulares-client';
 import {api} from '@/lib/api';
 import {useRealtimeCore} from '@/hooks/use-realtime';
 function RealtimeBootstrap(){useRealtimeCore();return null;}

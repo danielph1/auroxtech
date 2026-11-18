@@ -56,16 +56,7 @@ export function recursoAcaoDaRota(pathname:string,method:string):{recurso:Recurs
   ?(match[1]==='conversas'?'enviar':'criar'):'editar';
  return {recurso:match[1],acao};
 }
-export function recursoDaPagina(pathname:string):Recurso|null{
- const paths:Array<[string,Recurso]>=[
-  ['/financas','financeiro'],['/gestao-usuarios','usuarios'],['/triagem','triagem'],
-  ['/painel','leads'],['/novo-lead','leads'],['/chat','conversas'],
-  ['/estoque','estoque'],['/oficina','oficina'],['/anuncios','anuncios'],
-  ['/integracoes','integracoes'],['/fichas','fichas'],['/faturamento','faturamento'],
-  ['/metricas','metricas'],
- ];
- return paths.find(([p])=>pathname===p||pathname.startsWith(p+'/'))?.[1] || null;
-}
+export {recursoDaPagina} from './permissoes-granulares-client';
 export function podeAlterarPapel(ator:unknown,destino:unknown){
  const a=String(ator||'').toLowerCase(),d=String(destino||'').toLowerCase();
  return ['admin','superadmin'].includes(a) && a!==d && d!=='superadmin' &&
