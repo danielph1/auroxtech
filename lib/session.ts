@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken';
 import type { NextRequest } from 'next/server';
 import { queryOne } from './db';
 import { STATUS_LOGIN_OK } from './tenant';
+import {regraModuloDaRota,possuiModulos} from './aurox-modulos-acesso';
+import {modulosDisponiveis} from './aurox-modulos-server';
 import { permiteRota } from './permissoes-acesso';
 import {recursoAcaoDaRota,temPermissaoGranular} from './permissoes-granulares';
 
@@ -105,6 +107,13 @@ export async function requireUser(req: NextRequest): Promise<SessionUser | null>
   const granular=recursoAcaoDaRota(req.nextUrl.pathname,req.method);
   if(granular && (!await temPermissaoGranular(u,granular.recurso,'visualizar') ||
      (granular.acao!=='visualizar' && !await temPermissaoGranular(u,granular.recurso,granular.acao))))return null;
+  // Plano comercial: base livre, modulos adicionais sempre validados no servidor.
+  // A empresa vem exclusivamente da sessao revalidada no PostgreSQL.
+  const regra=regraModuloDaRota(req.nextUrl.pathname);
+  if(regra && u.tipo!=='superadmin'){
+    const contratados=await modulosDisponiveis(u);
+    if(!possuiModulos(contratados,regra))return null;
+  }
   return u;
 }
 

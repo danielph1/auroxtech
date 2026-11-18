@@ -13,7 +13,7 @@ import {useAuth} from '@/contexts/auth-context';
 import {useTema} from '@/contexts/theme-context';
 import {AuroxPulseLoader} from '@/components/aurox-pulse-loader';
 import {AuroxSolicitarImplantacao} from '@/components/aurox-solicitar-implantacao';
-import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais} from '@/lib/aurox-precos-publicos';
+import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais,alternarModuloAurox} from '@/lib/aurox-precos-publicos';
 import './aurox-precos-login.css';
 
 const modulosIcones:Record<string,typeof CarFront>={
@@ -36,7 +36,7 @@ export default function LoginPage(){
  const [modulos,setModulos]=useState<string[]>(['crm','financeiro']);
  const cotacao=useMemo(()=>cotarAurox(modulos),[modulos]);
  useEffect(()=>{if(isAuthenticated)router.replace('/inicio')},[isAuthenticated,router]);
- const alternar=(id:string)=>setModulos(p=>p.includes(id)?p.filter(v=>v!==id):[...p,id]);
+ const alternar=(id:string)=>setModulos(p=>alternarModuloAurox(p,id));
  const navegar=(id:string)=>{setTela('site');requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'}))};
  async function entrar(e:FormEvent){
   e.preventDefault();if(!form.login.trim()||!form.senha){toast.error('Informe seu login e senha.');return;}
@@ -72,8 +72,7 @@ export default function LoginPage(){
    <section className="ax-market-hero" aria-label="Conheça a AUROX">
     <div className="ax-market-hero-copy">
      <span className="ax-market-kicker"><span className="ax-market-kicker-line"/> SUA REVENDA, MAIS INTELIGENTE</span>
-     <div className="ax-market-slogan"><strong>AUROX</strong><span>Faça seu melhor com a melhor tecnologia.</span></div>
-     <h1>O próximo nível da <em>gestão automotiva.</em></h1>
+     <h1 className="ax-market-slogan"><strong>AUROX</strong><span>Faça seu melhor com a melhor tecnologia.</span></h1>
      <p>Do primeiro contato à venda. O AUROX reúne estoque, atendimento, equipe e gestão em um único ambiente — pensado para quem vive o dia a dia da concessionária.</p>
      <div className="ax-market-hero-actions"><button type="button" className="ax-market-primary" onClick={()=>navegar('ax-recursos')}>Descobrir o AUROX <ArrowRight size={18}/></button><button type="button" className="ax-market-outline" onClick={()=>navegar('ax-planos')}>Ver planos e valores</button></div>
      <div className="ax-market-hero-proof"><span><ShieldCheck size={16}/> Dados separados por empresa</span><span><Layers3 size={16}/> Módulos sob medida</span></div>

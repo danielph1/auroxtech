@@ -32,8 +32,26 @@ export type CotacaoAurox = {
   economiaCentavos: number;
   elegivelPromocao: boolean;
 };
-export function cotarAurox(modulos: readonly string[]): CotacaoAurox {
+/** Fiscal e Tributos depende do Financeiro em toda selecao de servicos. */
+export function normalizarModulosAurox(modulos: readonly string[]): string[] {
   const ids = new Set(modulos);
+  if (ids.has('fiscal')) ids.add('financeiro');
+  return [...ids];
+}
+/** Se Financeiro for desligado, o complemento Fiscal tambem deixa de ser contratado. */
+export function alternarModuloAurox(modulos: readonly string[], id: string): string[] {
+  const ids = new Set(modulos);
+  if (ids.has(id)) {
+    ids.delete(id);
+    if (id==='financeiro') ids.delete('fiscal');
+  } else {
+    ids.add(id);
+    if (id==='fiscal') ids.add('financeiro');
+  }
+  return [...ids];
+}
+export function cotarAurox(modulos: readonly string[]): CotacaoAurox {
+  const ids = new Set(normalizarModulosAurox(modulos));
   const selecionados = AUROX_MODULOS_PUBLICOS.filter(m => ids.has(m.id));
   const normalCentavos = AUROX_BASE_CENTAVOS + selecionados.reduce((s,m)=>s+m.centavos,0);
   const elegivelPromocao = normalCentavos > AUROX_LIMIAR_DESCONTO_CENTAVOS;

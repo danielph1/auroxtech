@@ -18,10 +18,12 @@ import {useAuth} from '@/contexts/auth-context';
 import {permiteRota} from '@/lib/permissoes-acesso';
 import {recursoDaPagina} from '@/lib/permissoes-granulares-client';
 import {api} from '@/lib/api';
+import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import {useRealtimeCore} from '@/hooks/use-realtime';
 function RealtimeBootstrap(){useRealtimeCore();return null;}
 export default function DashboardLayout({children}:{children:ReactNode}){
  const [open,setOpen]=useState(false);const path=usePathname()||'';const {user}=useAuth();
+ const {pode:acessoModulo,carregando:carregandoModulos,exige:exigeModulo}=useAuroxModulos();
  const [bloqueadas,setBloqueadas]=useState<string[]>([]),[permissoesCarregadas,setPermissoesCarregadas]=useState(false);
  useEffect(()=>{if(!user?.id)return;let live=true;setPermissoesCarregadas(false);
   void api.get('/permissoes',{params:{minhas:1}}).then(r=>{if(live){setBloqueadas(Array.isArray(r.data?.bloqueadas)?r.data.bloqueadas:[]);setPermissoesCarregadas(true)}}).catch(()=>{if(live){setBloqueadas([]);setPermissoesCarregadas(false)}});
@@ -35,6 +37,6 @@ export default function DashboardLayout({children}:{children:ReactNode}){
   <div className={'nova-sidebar-container'+(open?' is-open':'')}><SidebarNav onNavigate={()=>setOpen(false)}/></div>
   {open&&<button type="button" aria-label="Fechar menu" className="nova-mobile-overlay" onClick={()=>setOpen(false)}/>} 
   <div className="nova-content-shell"><AuroxTopbar onMenu={()=>setOpen(v=>!v)}/><main className="nova-workspace-main">
-   {(!recursoDaPagina(path)||permissoesCarregadas) && permiteRota(user?.tipo,path) && (!recursoDaPagina(path)||!bloqueadas.includes(recursoDaPagina(path)!))?children:<section className="nova-surface mx-auto max-w-lg p-7" role="alert"><h1 className="text-xl font-bold">Acesso restrito</h1><p className="mt-2 text-muted-foreground">Seu cargo não tem permissão para esta área.</p></section>}
+   {exigeModulo(path)&&carregandoModulos?<section className="nova-surface p-6">Verificando módulos contratados…</section>:(!recursoDaPagina(path)||permissoesCarregadas) && permiteRota(user?.tipo,path) && acessoModulo(path) && (!recursoDaPagina(path)||!bloqueadas.includes(recursoDaPagina(path)!))?children:<section className="nova-surface mx-auto max-w-lg p-7" role="alert"><h1 className="text-xl font-bold">Acesso restrito</h1><p className="mt-2 text-muted-foreground">Seu cargo não tem permissão para esta área.</p></section>}
   </main></div><AvisosFlutuante/><BottomNav/></div></ProtectedRoute>;
 }

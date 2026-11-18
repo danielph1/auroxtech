@@ -16,7 +16,7 @@ import './aurox-modulos-v4.css';
 import './aurox-exclusao-v4.css';
 import {AuroxModulosEmpresa} from '@/components/aurox-modulos-empresa';
 import {AuroxExclusaoEmpresa} from '@/components/aurox-exclusao-empresa';
-import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais} from '@/lib/aurox-precos-publicos';
+import {AUROX_MODULOS_PUBLICOS,cotarAurox,reais,normalizarModulosAurox,alternarModuloAurox} from '@/lib/aurox-precos-publicos';
 
 type LojaField = {codigo:string;nome:string;plano?:string};
 type Empresa = {id:number;nome:string;slug?:string|null;ativo:boolean;qtd_lojas?:number;qtd_usuarios?:number;plano?:string;mensalidade_centavos?:number};
@@ -48,7 +48,7 @@ export default function AuroxPage(){
     const x=(data.solicitacoes||[]).find((s:any)=>Number(s.id)===origem);
     if(!x)return;
     setForm(f=>({...f,nome:x.nome_empresa||'',telefone:x.telefone||'',admin_nome:x.nome_responsavel||'',slug:''}));
-    setModulosNova(Array.isArray(x.modulos)?x.modulos:[]);
+    setModulosNova(normalizarModulosAurox(Array.isArray(x.modulos)?x.modulos:[]));
     setSolicitacaoOrigem(origem);setOpenNovo(true);
   }).catch(()=>{});
  },[isSuper]);
@@ -127,9 +127,10 @@ export default function AuroxPage(){
      <div className="aurox-v4-detail-block"><div className="aurox-v4-block-head"><div><h3><Store size={17}/> Lojas</h3><p>Os serviços são contratados por empresa, não por plano de loja.</p></div><span>{detalhe.lojas?.length||0} loja(s)</span></div>
       <div className="aurox-v4-stores">{(detalhe.lojas||[]).map(l=><div className="aurox-v4-store" key={l.id}><span className="aurox-v4-store-icon"><Store size={17}/></span><div><strong>{l.nome||l.codigo}</strong><small>Código {l.codigo}{l.ativo===false?' · Inativa':''}</small></div></div>)}
        {(detalhe.lojas||[]).length===0&&<p className="aurox-v4-muted">Nenhuma loja vinculada.</p>}</div>
-      <div className="aurox-v4-add-store"><h4>Adicionar loja</h4><div><label><span>Código *</span><Input placeholder="381" value={novaLoja.codigo} onChange={e=>setNovaLoja({...novaLoja,codigo:e.target.value})}/></label><label><span>Nome</span><Input placeholder="Unidade" value={novaLoja.nome} onChange={e=>setNovaLoja({...novaLoja,nome:e.target.value})}/></label><Button type="button" onClick={addLojaNaEmpresa} disabled={addLojaBusy||!novaLoja.codigo.trim()}><Plus size={15}/>{addLojaBusy?'Adicionando…':'Adicionar'}</Button></div></div>
+      {detalhe.slug!=='aurox-plataforma'&&<div className="aurox-v4-add-store"><h4>Adicionar loja</h4><div><label><span>Código *</span><Input placeholder="381" value={novaLoja.codigo} onChange={e=>setNovaLoja({...novaLoja,codigo:e.target.value})}/></label><label><span>Nome</span><Input placeholder="Unidade" value={novaLoja.nome} onChange={e=>setNovaLoja({...novaLoja,nome:e.target.value})}/></label><Button type="button" onClick={addLojaNaEmpresa} disabled={addLojaBusy||!novaLoja.codigo.trim()}><Plus size={15}/>{addLojaBusy?'Adicionando…':'Adicionar'}</Button></div></div>}
      </div>
-     <AuroxModulosEmpresa empresaId={detalhe.id} modulos={detalhe.modulos_contratados||[]} onSaved={()=>void Promise.all([qc.invalidateQueries({queryKey:['aurox-empresa',detalhe.id]}),qc.invalidateQueries({queryKey:['aurox-empresas']})])}/>
+     {detalhe.slug==='aurox-plataforma'?<div className="aurox-v4-detail-block"><h3>Empresa interna AUROX</h3><p className="aurox-v4-muted">Ambiente reservado ao atendimento comercial da plataforma. Não possui pacote contratável e não permite edição de serviços.</p></div>:
+      <AuroxModulosEmpresa empresaId={detalhe.id} modulos={detalhe.modulos_contratados||[]} onSaved={()=>void Promise.all([qc.invalidateQueries({queryKey:['aurox-empresa',detalhe.id]}),qc.invalidateQueries({queryKey:['aurox-empresas']})])}/>}
      <div className="aurox-v4-detail-block"><div className="aurox-v4-block-head"><div><h3><UsersRound size={17}/> Usuários vinculados</h3><p>Consulta de contas pertencentes a esta empresa.</p></div><span>{detalhe.usuarios?.length||0} usuário(s)</span></div>
       <div className="aurox-v4-users">{(detalhe.usuarios||[]).map(u=><div className="aurox-v4-user" key={u.id}><span className="aurox-v4-user-avatar">{String(u.nome||u.login||'?')[0].toUpperCase()}</span><div><strong>{u.nome||u.login}</strong><small>@{u.login} · {u.tipo}</small></div><span className={`aurox-v4-state${u.ativo?' on':' off'}`}>{u.status|| (u.ativo?'Ativo':'Inativo')}</span></div>)}
        {(detalhe.usuarios||[]).length===0&&<p className="aurox-v4-muted">Nenhum usuário vinculado.</p>}</div>
@@ -146,7 +147,7 @@ export default function AuroxPage(){
     <div className="aurox-v4-form-heading"><UsersRound size={17}/> Administrador inicial</div><div className="aurox-v4-form-grid"><label><span>Nome do administrador</span><Input value={form.admin_nome} onChange={e=>setForm({...form,admin_nome:e.target.value})} placeholder="Nome completo"/></label><label><span>Login do administrador *</span><Input value={form.admin_login} title="Use letras, números, ponto, hífen, @ ou _" onChange={e=>setForm({...form,admin_login:e.target.value})} autoCapitalize="none" placeholder="usuario.admin"/></label><label className="aurox-v4-full"><span>Senha inicial *</span><div className="aurox-v4-password"><Input type={mostrarSenha?'text':'password'} value={form.admin_senha} onChange={e=>setForm({...form,admin_senha:e.target.value})} autoComplete="new-password" placeholder="Mínimo de 8 caracteres"/><button type="button" aria-label={mostrarSenha?'Ocultar senha':'Mostrar senha'} onClick={()=>setMostrarSenha(v=>!v)}>{mostrarSenha?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label></div>
     <div className="aurox-v4-form-heading"><Store size={17}/> Lojas e contrato modular</div>
      <section className="ax-admin-module-init"><h3>Selecione os serviços da concessionária</h3>
-     <div className="ax-admin-module-grid">{AUROX_MODULOS_PUBLICOS.map(m=><label key={m.id}><input type="checkbox" checked={modulosNova.includes(m.id)} onChange={()=>setModulosNova(p=>p.includes(m.id)?p.filter(x=>x!==m.id):[...p,m.id])}/><span><b>{m.nome}</b><small>+ {reais(m.centavos)}/mês</small></span></label>)}</div>
+     <div className="ax-admin-module-grid">{AUROX_MODULOS_PUBLICOS.map(m=><label key={m.id}><input type="checkbox" checked={modulosNova.includes(m.id)} onChange={()=>setModulosNova(p=>alternarModuloAurox(p,m.id))}/><span><b>{m.nome}</b><small>+ {reais(m.centavos)}/mês</small></span></label>)}</div>
      <div className="ax-admin-modal-summary">AUROX Base + módulos: <strong>{reais(cotacaoNova.normalCentavos)}/mês</strong>. {cotacaoNova.elegivelPromocao?<>Primeira mensalidade estimada: <strong>{reais(cotacaoNova.primeiroMesCentavos)}</strong>.</>:<>Desconto disponível apenas para pacotes acima de R$ 500.</>}</div>
      <p>Contrato modular. A equipe precisa confirmar a ativação de serviços que dependem de integração técnica.</p></section>
     <div className="aurox-v4-loja-modal-list">{lojas.map((l,index)=><div key={index}><label><span>Código *</span><Input value={l.codigo} onChange={e=>setLojas(prev=>prev.map((o,i)=>i===index?{...o,codigo:e.target.value}:o))} placeholder="381"/></label><label><span>Nome da loja</span><Input value={l.nome} onChange={e=>setLojas(prev=>prev.map((o,i)=>i===index?{...o,nome:e.target.value}:o))} placeholder="Unidade"/></label>{lojas.length>1&&<button type="button" aria-label={`Remover loja ${index+1}`} title="Remover loja" onClick={()=>setLojas(prev=>prev.filter((_,i)=>i!==index))}><Trash2 size={16}/></button>}</div>)}</div>

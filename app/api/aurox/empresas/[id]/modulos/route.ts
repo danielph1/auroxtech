@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {requireUser} from '@/lib/session';
 import {isSuperAdmin} from '@/lib/tenant';
 import {getPool} from '@/lib/db';
-import {AUROX_MODULOS_PUBLICOS,AUROX_BASE_CENTAVOS,cotarAurox} from '@/lib/aurox-precos-publicos';
+import {AUROX_MODULOS_PUBLICOS,AUROX_BASE_CENTAVOS,cotarAurox,normalizarModulosAurox} from '@/lib/aurox-precos-publicos';
 export const runtime='nodejs';
 const json=(v:object,status=200)=>NextResponse.json(v,{status,headers:{'Cache-Control':'no-store'}});
 export async function PUT(req:NextRequest,{params}:{params:Promise<{id:string}>}){
@@ -10,7 +10,7 @@ export async function PUT(req:NextRequest,{params}:{params:Promise<{id:string}>}
  const {id}=await params;const empresaId=Number(id);const b=await req.json().catch(()=>null);
  const ids=new Set(AUROX_MODULOS_PUBLICOS.map(x=>x.id));const entrada=b?.modulos;
  if(!Number.isSafeInteger(empresaId)||empresaId<=0||!Array.isArray(entrada)||entrada.length>ids.size||entrada.some((x:unknown)=>typeof x!=='string'||!ids.has(x)))return json({error:'Empresa ou módulos inválidos'},400);
- const modulos=Array.from(new Set(entrada as string[]));const valor=cotarAurox(modulos);
+ const modulos=normalizarModulosAurox(Array.from(new Set(entrada as string[])));const valor=cotarAurox(modulos);
  const db=await getPool().connect();try{await db.query('BEGIN');
   const {rows:[empresa]}=await db.query(`SELECT id,slug FROM public.empresas WHERE id=$1 FOR UPDATE`,[empresaId]);
   if(!empresa||empresa.slug==='aurox-plataforma'){await db.query('ROLLBACK');return json({error:'Empresa não encontrada ou protegida'},403)}

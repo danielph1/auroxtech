@@ -29,7 +29,7 @@ export function FiscalSimulador({empresaId}:{empresaId:number}){
  return <section className="space-y-5" aria-label="Fiscal e Tributos">
   <header className="flex items-start gap-3 rounded-2xl border border-border bg-card p-5">
    <span className="rounded-xl bg-primary/10 p-3 text-primary"><Calculator size={22}/></span><div><h2 className="text-xl font-semibold">Fiscal e Tributos</h2>
-   <p className="mt-1 text-sm text-muted-foreground">Adicional independente do Financeiro · simulação gerencial, sem emissão de guia.</p></div>
+   <p className="mt-1 text-sm text-muted-foreground">Adicional do Financeiro · simulação gerencial, sem emissão de guia.</p></div>
   </header>
   {carregando&&<p className="text-sm text-muted-foreground">Consultando módulo Fiscal…</p>}
   {erro&&<p className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive" role="alert">{erro}</p>}

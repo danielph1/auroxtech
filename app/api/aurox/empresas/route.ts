@@ -3,7 +3,7 @@ import {query,getPool} from '@/lib/db';
 import {requireUser} from '@/lib/session';
 import {hashPassword} from '@/lib/password';
 import {isSuperAdmin} from '@/lib/tenant';
-import {AUROX_MODULOS_PUBLICOS,AUROX_BASE_CENTAVOS,cotarAurox} from '@/lib/aurox-precos-publicos';
+import {AUROX_MODULOS_PUBLICOS,AUROX_BASE_CENTAVOS,cotarAurox,normalizarModulosAurox} from '@/lib/aurox-precos-publicos';
 export const runtime='nodejs';
 const response=(body:object,status:number)=>NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const slugify=(s:string)=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
@@ -42,7 +42,7 @@ export async function POST(req:NextRequest){
  const idsValidos=new Set(AUROX_MODULOS_PUBLICOS.map(x=>x.id));
  const entrada=Array.isArray(b.modulos)?b.modulos:[];
  if(entrada.length>AUROX_MODULOS_PUBLICOS.length||entrada.some((x:unknown)=>typeof x!=='string'||!idsValidos.has(x)))return response({error:'Módulos do contrato inválidos'},400);
- const modulos=Array.from(new Set(entrada as string[]));
+ const modulos=normalizarModulosAurox(Array.from(new Set(entrada as string[])));
  const cotacao=cotarAurox(modulos);
  const solicitacaoId=b.solicitacao_id==null?null:Number(b.solicitacao_id);
  if(solicitacaoId!=null&&(!Number.isSafeInteger(solicitacaoId)||solicitacaoId<=0))return response({error:'Solicitação inválida'},400);
@@ -102,7 +102,7 @@ export async function POST(req:NextRequest){
    const {rows:[sol]}=await client.query(`SELECT s.id,s.nome_empresa,s.telefone,s.modulos FROM public.aurox_solicitacoes_comerciais s
      JOIN public.empresas e ON e.id=s.empresa_id AND e.slug='aurox-plataforma'
      WHERE s.id=$1 AND s.status='aprovado' FOR UPDATE OF s`,[solicitacaoId]);
-   if(!sol||sol.nome_empresa.trim().toLowerCase()!==nome.toLowerCase()||JSON.stringify([...new Set(sol.modulos)].sort())!==JSON.stringify([...modulos].sort())){
+   if(!sol||sol.nome_empresa.trim().toLowerCase()!==nome.toLowerCase()||JSON.stringify(normalizarModulosAurox(sol.modulos||[]).sort())!==JSON.stringify([...modulos].sort())){
     throw Object.assign(new Error('Proposta aprovada e cadastro não correspondem'),{code:'AUROX_PROPOSTA_DIVERGENTE'});
    }
    await client.query(`UPDATE public.aurox_solicitacoes_comerciais SET status='concluido',atualizado_por=$2,atualizado_em=now() WHERE id=$1`,[solicitacaoId,u.id]);

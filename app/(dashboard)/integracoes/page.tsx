@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -24,6 +25,9 @@ const CANAIS_CHAVE = [
 
 export default function IntegracoesPage() {
   const { user, isLoading } = useAuth();
+  const {modulos}=useAuroxModulos();
+  const temAnuncios=user?.tipo==='superadmin'||modulos.includes('anuncios');
+  const temWhatsApp=user?.tipo==='superadmin'||modulos.includes('whatsapp');
   const tipo = String(user?.tipo || '').toLowerCase();
   const autorizado = ['admin', 'marketing', 'superadmin'].includes(tipo);
   const isSuper = tipo === 'superadmin';
@@ -216,6 +220,7 @@ export default function IntegracoesPage() {
       </div>
 
       <div className="studio-integration-grid">
+        {temWhatsApp&&<>
         {/* WhatsApp AUROX: QR próprio, totalmente independente da Z-API. */}
         <div className="studio-integration-wide" data-aurox-whatsapp="proprio">
           <AuroxWhatsappConnect empresaId={empresa} />
@@ -226,6 +231,8 @@ export default function IntegracoesPage() {
           <MetaEmbeddedSignup empresaId={empresa} onConnected={() => atualizarConexoes()} />
         </div>
 
+        </>}
+        {temAnuncios&&<>
         {/* Meta OAuth */}
         <button
           type="button"
@@ -365,6 +372,7 @@ export default function IntegracoesPage() {
             </div>
           );
         })}
+        </>}
       </div>
 
       {webhookGerado && (
@@ -400,7 +408,7 @@ export default function IntegracoesPage() {
       </div>
       {carregandoConexoes && <p className="text-sm text-muted-foreground">Consultando conexões desta empresa…</p>}
       {!carregandoConexoes && oauth.length === 0 && <p className="text-sm text-muted-foreground">Esta empresa não possui conexão ativa registrada.</p>}
-      {oauth.filter((o) => String(o.empresa_id) === empresa).map((o) => (
+      {oauth.filter((o) => String(o.empresa_id) === empresa && (temAnuncios || (temWhatsApp && /whatsapp|zapi/i.test(o.provedor)))).map((o) => (
         <div key={o.id} className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
           <div className="min-w-0">
             <div className="font-medium truncate">{o.label || o.provedor}</div>

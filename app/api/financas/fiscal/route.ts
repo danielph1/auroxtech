@@ -5,8 +5,7 @@ import {calcularFiscal,emCentavos,type DadosFiscais} from '@/lib/fiscal/calculo'
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const json=(v:object,status=200)=>NextResponse.json(v,{status,headers:{'Cache-Control':'private, no-store'}});
 async function acessoModulo(empresaId:number){
- const r=await queryOne<{ativo:boolean}>(`SELECT ativo FROM public.aurox_contrato_servicos
-   WHERE empresa_id=$1 AND codigo='fiscal'`,[empresaId]);
+ const r=await queryOne<{ativo:boolean}>(`SELECT EXISTS (SELECT 1 FROM public.aurox_contrato_servicos f JOIN public.aurox_contrato_servicos fin ON fin.empresa_id=f.empresa_id AND fin.codigo='financeiro' AND fin.ativo=TRUE WHERE f.empresa_id=$1 AND f.codigo='fiscal' AND f.ativo=TRUE) AS ativo`,[empresaId]);
  return r?.ativo===true;
 }
 export async function GET(req:NextRequest){

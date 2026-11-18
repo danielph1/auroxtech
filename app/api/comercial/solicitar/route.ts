@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import {NextRequest,NextResponse} from 'next/server';
 import {getPool} from '@/lib/db';
-import {cotarAurox,AUROX_MODULOS_PUBLICOS} from '@/lib/aurox-precos-publicos';
+import {cotarAurox,AUROX_MODULOS_PUBLICOS,normalizarModulosAurox} from '@/lib/aurox-precos-publicos';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -30,7 +30,7 @@ export async function POST(req:NextRequest){
       return reply({error:'Preencha responsável, concessionária, telefone, cidade/UF e consentimento.'},400);
     if(!Array.isArray(b.modulos)||b.modulos.length>20)return reply({error:'Módulos inválidos'},400);
     const validIds=new Set(AUROX_MODULOS_PUBLICOS.map(x=>x.id));
-    const modulos=Array.from(new Set(b.modulos.filter((x:unknown):x is string=>typeof x==='string'&&validIds.has(x))));
+    const modulos=normalizarModulosAurox(Array.from(new Set(b.modulos.filter((x:unknown):x is string=>typeof x==='string'&&validIds.has(x)))));
     // Oferta atual: um WhatsApp por empresa, sem seleção pública de quantidades.
     // Rejeita cargas antigas/manipuladas que tentam comprar números extras.
     if(b.numerosWhatsApp !== undefined && b.numerosWhatsApp !== 1)

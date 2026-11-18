@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {Bell,CalendarDays,ChevronRight,Menu,Moon,Plus,Search,Sun,UserRound,X} from 'lucide-react';
 import {useAuth} from '@/contexts/auth-context';
+import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import {useTema} from '@/contexts/theme-context';
 
 const ROUTES=[
@@ -33,11 +34,11 @@ export const AUROX_TITLES:Record<string,string>={
  '/minha-conta':'Meu perfil','/novo-lead':'Cadastrar lead'
 };
 export function AuroxTopbar({onMenu}:{onMenu:()=>void}){
- const path=usePathname()||'/inicio';const router=useRouter();const {user}=useAuth();const {tema,setTema}=useTema();
+ const path=usePathname()||'/inicio';const router=useRouter();const {user}=useAuth();const {tema,setTema}=useTema();const {pode:acessoModulo}=useAuroxModulos();
  const [busca,setBusca]=useState(''),[aberto,setAberto]=useState(false);const inputRef=useRef<HTMLInputElement>(null);
  useEffect(()=>{const handler=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();inputRef.current?.focus();setAberto(true);}};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);},[]);
  const cargo=String(user?.tipo||'').toLowerCase();const claro=tema==='claro';
- const links=useMemo(()=>ROUTES.filter(r=>!r.role.length||r.role.includes(cargo)).filter(r=>r.name.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR'))).slice(0,8),[cargo,busca]);
+ const links=useMemo(()=>ROUTES.filter(r=>(!r.role.length||r.role.includes(cargo))&&acessoModulo(r.url)).filter(r=>r.name.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR'))).slice(0,8),[cargo,busca,acessoModulo]);
  const title=Object.entries(AUROX_TITLES).find(([href])=>href===path)?.[1]||Object.entries(AUROX_TITLES).find(([href])=>path.startsWith(href+'/'))?.[1]||'Área de trabalho';
  return <header className="nova-topbar">
   <div className="nova-topbar-main">
@@ -50,10 +51,10 @@ export function AuroxTopbar({onMenu}:{onMenu:()=>void}){
     {aberto&&busca&&<div className="nova-search-results" role="listbox">{links.length?links.map(item=><Link key={item.url} href={item.url} onClick={()=>{setAberto(false);setBusca('')}}>{item.name}<ChevronRight size={14}/></Link>):<p>Nenhuma página encontrada.</p>}</div>}
    </div>
    <div className="nova-topbar-actions">
-    <Link href="/agenda" className="nova-icon-button" title="Agenda"><CalendarDays size={18}/></Link>
+    {acessoModulo("/agenda")&&<Link href="/agenda" className="nova-icon-button" title="Agenda"><CalendarDays size={18}/></Link>}
     <button type="button" onClick={()=>setTema(claro?'escuro':'claro')} className="nova-icon-button" aria-label={claro?'Ativar tema escuro':'Ativar tema claro'} title={claro?'Tema escuro':'Tema claro'}>{claro?<Moon size={18}/>:<Sun size={18}/>}</button>
     <Link href="/configuracoes/notificacoes" className="nova-icon-button" title="Configurar notificações"><Bell size={18}/></Link>
-    {['vendedor','gerente','admin','superadmin','marketing'].includes(cargo)&&<Link href="/novo-lead" className="nova-primary-action"><Plus size={16}/><span>Novo lead</span></Link>}
+    {['vendedor','gerente','admin','superadmin','marketing'].includes(cargo)&&acessoModulo('/novo-lead')&&<Link href="/novo-lead" className="nova-primary-action"><Plus size={16}/><span>Novo lead</span></Link>}
     <Link href="/configuracoes" className="nova-topbar-user" title="Configurações"><span>{String(user?.nome||user?.login||'?')[0]?.toUpperCase()}</span><strong>{String(user?.nome||user?.login||'Perfil').split(' ')[0]}</strong></Link>
    </div>
   </div>
