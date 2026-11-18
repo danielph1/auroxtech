@@ -4,6 +4,7 @@ import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '@/contexts/auth-context';
 import {api} from '@/lib/api';
 import {FiscalSimulador} from '@/components/fiscal-simulador';
+import {useAuroxModulos} from '@/hooks/use-aurox-modulos';
 import {toast} from 'sonner';
 import {CalendarDays,CheckCircle2,Clock3,FileText,Landmark,PenLine,Plus,RefreshCcw,
   Shield,Trash2,Wallet,ArrowDownRight,ArrowUpRight,AlertCircle} from 'lucide-react';
@@ -67,7 +68,14 @@ function Vazio({children}:{children:ReactNode}){return <p className="rounded-xl 
 export default function FinancasPage(){
  const {user}=useAuth(),qc=useQueryClient(),cargo=String(user?.tipo||'').toLowerCase();
  const acesso=cargo==='admin'||cargo==='superadmin',superadmin=cargo==='superadmin';
+ const {modulos:modulosContrato}=useAuroxModulos();
+ const permissoesFiscal=useQuery<{bloqueadas:string[]}>({queryKey:['fiscal-permissoes',user?.id,user?.empresa_id],
+  enabled:acesso&&!superadmin,queryFn:async()=>(await api.get('/permissoes',{params:{minhas:1}})).data,
+  staleTime:15_000,refetchOnWindowFocus:true,refetchInterval:30_000});
+ const podeFiscal=superadmin||(modulosContrato.includes('fiscal')&&permissoesFiscal.isSuccess&&
+  !permissoesFiscal.data?.bloqueadas?.includes('fiscal'));
  const [empresa,setEmpresa]=useState(''),[aba,setAba]=useState<'resumo'|'contas'|'vendas'|'fiscal'>('resumo');
+ useEffect(()=>{if(aba==='fiscal'&&!podeFiscal)setAba('resumo');},[aba,podeFiscal]);
  const [intervalo,setIntervalo]=useState('todos'),[desde,setDesde]=useState(''),[ate,setAte]=useState('');
  const [form,setForm]=useState(formularioVazio),[editando,setEditando]=useState<number|null>(null);
  const [criando,setCriando]=useState(false),[salvando,setSalvando]=useState(false);
@@ -271,10 +279,10 @@ export default function FinancasPage(){
     <Caixa nome="Baixas realizadas" valor={String(caixa?.lancamentos_confirmados||0)} descricao="Quantidade de movimentos de caixa efetivados." icone={<CheckCircle2 size={16}/>}/>
    </div>
    <div className="flex gap-1 overflow-x-auto rounded-xl border bg-card p-1">
-    {([['resumo','Visão geral'],['contas','Contas e boletos'],['vendas','Conciliação de vendas'],['fiscal','Fiscal e Tributos']] as const).map(([id,label])=><button
+    {([['resumo','Visão geral'],['contas','Contas e boletos'],['vendas','Conciliação de vendas'],['fiscal','Fiscal e Tributos']] as const).filter(([id])=>id!=='fiscal'||podeFiscal).map(([id,label])=><button
       key={id} className={`min-w-max rounded-lg px-4 py-2 text-sm ${aba===id?'bg-primary text-primary-foreground':'hover:bg-muted'}`} onClick={()=>setAba(id)}>{label}</button>)}
    </div>
-   {aba==='fiscal'&&empresaId>0&&<FiscalSimulador empresaId={empresaId}/>}
+   {aba==='fiscal'&&podeFiscal&&empresaId>0&&<FiscalSimulador empresaId={empresaId}/>}
    {aba==='resumo'&&<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(270px,340px)]">
     <div className="min-w-0 space-y-5">
      <section aria-label="Calendário financeiro" className="rounded-2xl border border-border bg-card p-4 sm:p-5">

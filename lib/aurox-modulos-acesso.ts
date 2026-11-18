@@ -57,6 +57,7 @@ const apis: readonly Entrada[] = [
   ['/api/integracoes/oauth/zapi',{todos:['whatsapp']}],
   ['/api/integracoes/oauth/olx',{todos:['anuncios']}],
   ['/api/integracoes/oauth/mercadolivre',{todos:['anuncios']}],
+  ['/api/integracoes/oauth/credencial',{todos:['anuncios']}],
   ['/api/integracoes/oauth/meta',{todos:['anuncios']}],
   ['/api/integracoes/meta',{todos:['anuncios']}],
   ['/api/integracoes/empresas',{qualquer:['anuncios','whatsapp']}],

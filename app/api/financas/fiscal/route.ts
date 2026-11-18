@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {query,queryOne} from '@/lib/db';
+import {query,queryOne,getPool} from '@/lib/db';
 import {financeAuth} from '@/lib/financas/finance';
+import {verifyPassword} from '@/lib/password';
 import {calcularFiscal,emCentavos,type DadosFiscais} from '@/lib/fiscal/calculo';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const json=(v:object,status=200)=>NextResponse.json(v,{status,headers:{'Cache-Control':'private, no-store'}});
@@ -16,7 +17,7 @@ export async function GET(req:NextRequest){
   if(!habilitado)return json({habilitado:false,simulacoes:[]});
   const {rows}=await query(`SELECT id,regime,base,descricao,venda_centavos,aquisicao_centavos,despesas_centavos,
   base_calculo_centavos,aliquota_percentual,estimado_centavos,margem_centavos,criado_em
-  FROM public.aurox_fiscal_simulacoes WHERE empresa_id=$1 ORDER BY criado_em DESC,id DESC LIMIT 30`,[auth.empresaId]);
+  FROM public.aurox_fiscal_simulacoes WHERE empresa_id=$1 AND excluido_em IS NULL ORDER BY criado_em DESC,id DESC LIMIT 30`,[auth.empresaId]);
   return json({habilitado:true,simulacoes:rows});
  }catch(e:any){return json({error:e?.code==='42P01'?'Execute a migration Fiscal no Supabase':'Falha ao consultar Fiscal'},503)}
 }
@@ -50,4 +51,64 @@ export async function POST(req:NextRequest){
   if(e instanceof Error&&!e?.code)return json({error:e.message},400);
   return json({error:'Não foi possível registrar a simulação'},503);
  }
+}
+
+/** Exclui da visualizacao, mas preserva auditoria minima. NUNCA usa empresa do cliente como autorizacao. */
+export async function DELETE(req:NextRequest){
+ const body=await req.json().catch(()=>null);
+ const auth=await financeAuth(req,body?.empresa_id);
+ if(auth instanceof NextResponse)return auth;
+ const id=Number(body?.id);
+ const todos=body?.escopo==='todos';
+ const senha=typeof body?.senha==='string'?body.senha:'';
+ if(!body || !senha || senha.length>200 || (todos ? body.confirmacao!=='APAGAR HISTORICO' : !Number.isSafeInteger(id)||id<1))
+  return json({error:'Informe a senha e confirme a exclusão corretamente'},400);
+ if(!['superadmin','admin'].includes(auth.actor.tipo))return json({error:'Apenas administradores podem remover simulações'},403);
+ let client;
+ try{
+  if(!await acessoModulo(auth.empresaId))return json({error:'Módulo Fiscal não contratado nesta empresa'},403);
+  client=await getPool().connect();
+  await client.query('BEGIN');
+  // Limite de tentativas por usuario/empresa, inclusive entre instancias Vercel.
+  await client.query(`INSERT INTO public.aurox_fiscal_exclusao_tentativas(empresa_id,usuario_id)
+    VALUES($1,$2) ON CONFLICT(empresa_id,usuario_id) DO NOTHING`,[auth.empresaId,auth.actor.id]);
+  const {rows:[tentativa]}=await client.query(`
+    SELECT falhas,(atualizado_em > now()-interval '15 minutes') AS janela_ativa
+    FROM public.aurox_fiscal_exclusao_tentativas
+    WHERE empresa_id=$1 AND usuario_id=$2 FOR UPDATE`,[auth.empresaId,auth.actor.id]);
+  if(tentativa?.janela_ativa && Number(tentativa.falhas)>=5){
+   await client.query('COMMIT');return json({error:'Muitas tentativas de senha. Aguarde 15 minutos.'},429);
+  }
+  const {rows:[usr]}=await client.query(`
+    SELECT senha_hash FROM public.usuarios WHERE id=$1 AND COALESCE(ativo,true)=true FOR SHARE`,[auth.actor.id]);
+  if(!usr || !verifyPassword(senha,usr.senha_hash)){
+   await client.query(`UPDATE public.aurox_fiscal_exclusao_tentativas SET
+    falhas=CASE WHEN atualizado_em<now()-interval '15 minutes' THEN 1 ELSE falhas+1 END,
+    atualizado_em=now() WHERE empresa_id=$1 AND usuario_id=$2`,[auth.empresaId,auth.actor.id]);
+   await client.query('COMMIT');return json({error:'Senha incorreta'},403);
+  }
+  await client.query(`UPDATE public.aurox_fiscal_exclusao_tentativas
+    SET falhas=0,atualizado_em=now()-interval '1 second'
+    WHERE empresa_id=$1 AND usuario_id=$2`,[auth.empresaId,auth.actor.id]);
+  const updated=todos
+   ?await client.query(`UPDATE public.aurox_fiscal_simulacoes
+      SET excluido_em=now(),excluido_por=$2 WHERE empresa_id=$1 AND excluido_em IS NULL RETURNING id`,
+      [auth.empresaId,auth.actor.id])
+   :await client.query(`UPDATE public.aurox_fiscal_simulacoes
+      SET excluido_em=now(),excluido_por=$3 WHERE empresa_id=$1 AND id=$2 AND excluido_em IS NULL RETURNING id`,
+      [auth.empresaId,id,auth.actor.id]);
+  const quantidade=updated.rowCount||0;
+  if(!quantidade && !todos){await client.query('COMMIT');return json({error:'Simulação não encontrada nesta empresa'},404);}
+  if(quantidade){
+   await client.query(`INSERT INTO public.aurox_fiscal_auditoria
+    (empresa_id,simulacao_id,ator_id,evento,quantidade) VALUES($1,$2,$3,$4,$5)`,
+    [auth.empresaId,todos?null:id,auth.actor.id,todos?'limpar_historico':'remover_simulacao',quantidade]);
+  }
+  await client.query('COMMIT');
+  return json({ok:true,removidas:quantidade,notificacao:'Simulações retiradas do histórico; auditoria preservada.'});
+ }catch(e:any){
+  if(client)await client.query('ROLLBACK').catch(()=>{});
+  console.error('[fiscal DELETE]',String(e?.code||'erro'));
+  return json({error:['42P01','42703'].includes(String(e?.code))?'Execute a migração Fiscal de exclusão no Supabase.':'Não foi possível remover a simulação'},503);
+ }finally{if(client)client.release();}
 }

@@ -11,7 +11,7 @@ export function useAuroxModulos(){
   queryKey:['aurox-modulos',user?.id,user?.empresa_id],
   queryFn:async()=> (await api.get('/aurox/meus-modulos')).data,
   enabled:!!user?.id&&!superadmin,
-  staleTime:15_000,refetchOnWindowFocus:true,
+  staleTime:15_000,refetchOnWindowFocus:true,refetchInterval:30_000,refetchOnMount:'always',
   retry:1,
  });
  const modulos=Array.isArray(consulta.data?.modulos)?consulta.data.modulos:[];

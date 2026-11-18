@@ -19,7 +19,7 @@ export const ACOES_RECURSO:Record<Recurso,readonly Acao[]>={
  conversas:['visualizar','enviar','excluir'],fichas:['visualizar','criar','editar','excluir'],
  estoque:['visualizar','criar','editar','excluir'],oficina:['visualizar','criar','editar','excluir'],
  anuncios:['visualizar','criar','editar','excluir'],faturamento:['visualizar','criar','editar','excluir'],
- financeiro:['visualizar','criar','editar','excluir'],fiscal:['visualizar','criar'],
+ financeiro:['visualizar','criar','editar','excluir'],fiscal:['visualizar','criar','excluir'],
  integracoes:['visualizar','criar','editar','excluir'],usuarios:['visualizar','criar','editar','excluir'],
  metricas:['visualizar'],
 };
