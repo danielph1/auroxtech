@@ -6,11 +6,11 @@ export const BANNERS_PORTAL=[
  '/ficha-banners/natal.webp','/ficha-banners/ofertao.webp',
 ] as const;
 export const CAMPANHAS_PORTAL=[
- {id:'institucional',rotulo:'Institucional',icone:'🛡️'},
- {id:'promocao',rotulo:'Promoção',icone:'🏷️'},
- {id:'feirao',rotulo:'Feirão',icone:'🏁'},
- {id:'natal',rotulo:'Natal',icone:'🎄'},
- {id:'ofertao',rotulo:'Ofertão',icone:'📣'},
+ {id:'institucional',rotulo:'Institucional'},
+ {id:'promocao',rotulo:'Promoção'},
+ {id:'feirao',rotulo:'Feirão'},
+ {id:'natal',rotulo:'Natal'},
+ {id:'ofertao',rotulo:'Ofertão'},
 ] as const;
 export const TEMA_PADRAO={
  titulo:'Ficha de cadastro',
@@ -20,5 +20,5 @@ export const TEMA_PADRAO={
  campanha:'institucional' as CampanhaPortal,
  modo_banner:'nenhum' as BannerModo,
  banners:[0,1,2] as number[],
- empresa_nome:'Sua concessionária',
+ empresa_nome:'Concessionária',
 };

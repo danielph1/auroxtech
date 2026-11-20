@@ -48,6 +48,7 @@ export const respostaSchema=z.object({
  nome_completo:z.string().trim().min(5).max(150),
  telefone:z.string().trim().regex(/^[+()0-9\s-]{10,24}$/),
  carro_interesse:z.string().trim().min(2).max(150),
+ habilitado:z.enum(['sim','nao']),
  valor_entrada:z.string().trim().regex(/^\d{1,9}(?:[,.]\d{1,2})?$/),
  cpf:z.string().transform(v=>v.replace(/\D/g,'')).refine(cpfValido,'CPF inválido'),
  data_nascimento:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s=>{

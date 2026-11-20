@@ -7,7 +7,7 @@ import {FichaPortalBanner} from '@/components/ficha-portal-banner';
 type Tema=typeof TEMA_PADRAO;
 const inputs:ReadonlyArray<[string,string,string,boolean]>=[
  ['nome_completo','Nome completo','text',true],['telefone','Telefone (WhatsApp)','tel',true],['cpf','CPF','text',true],['data_nascimento','Data de nascimento','date',true],
- ['carro_interesse','Carro de interesse','text',true],['valor_entrada','Valor de entrada (R$)','text',true],
+ ['carro_interesse','Veículo de interesse','text',true],['valor_entrada','Valor de entrada (R$)','text',true],
  ['rg','RG','text',false],['nome_mae','Nome da mãe','text',false],['email','E-mail','email',false],
  ['cep','CEP','text',false],['endereco','Endereço','text',false],['bairro','Bairro','text',false],
  ['cidade','Cidade','text',false],['estado','UF (sigla)','text',false],['salario','Renda mensal declarada (R$)','text',false],
@@ -16,7 +16,7 @@ const input='mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm
 export default function FichaClientePublica(){
  const [token,setToken]=useState(''),[tema,setTema]=useState<Tema>(TEMA_PADRAO),[estado,setEstado]=useState<'carregando'|'pronto'|'concluido'|'erro'>('carregando');
  const [erro,setErro]=useState(''),[aviso,setAviso]=useState(''),[busy,setBusy]=useState(false),[codigo,setCodigo]=useState(''),[consentimento,setConsentimento]=useState(false);
- const [form,setForm]=useState<Record<string,string>>({nome_completo:'',telefone:'',cpf:'',data_nascimento:'',carro_interesse:'',valor_entrada:'',rg:'',nome_mae:'',email:'',cep:'',endereco:'',bairro:'',cidade:'',estado:'',salario:''});
+ const [form,setForm]=useState<Record<string,string>>({nome_completo:'',telefone:'',cpf:'',data_nascimento:'',carro_interesse:'',valor_entrada:'',habilitado:'',rg:'',nome_mae:'',email:'',cep:'',endereco:'',bairro:'',cidade:'',estado:'',salario:''});
  async function req(payload:object){const r=await fetch('/api/public/ficha-cliente',{method:'POST',cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Não foi possível concluir');return d;}
  useEffect(()=>{const t=window.location.hash.slice(1);window.history.replaceState(null,'',window.location.pathname);
@@ -45,6 +45,12 @@ export default function FichaClientePublica(){
      <div className="grid gap-4 sm:grid-cols-2">{inputs.map(([key,label,type,required])=><label key={key} className="text-sm font-medium">{label}{required?' *':''}
        <input name={key} type={type} className={input} required={required} maxLength={key==='nome_completo'?150:key==='email'?200:key==='carro_interesse'?150:key==='telefone'?24:key==='valor_entrada'?15:key==='endereco'?220:120} value={form[key]||''} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>
       </label>)}</div>
+     <fieldset className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <legend className="px-1 text-sm font-semibold">Habilitado — possui CNH? *</legend>
+      <div className="mt-2 flex flex-wrap gap-5">
+       {([['sim','Sim'],['nao','Não']] as const).map(([valor,rotulo])=><label key={valor} className="flex items-center gap-2 text-sm"><input type="radio" name="habilitado" value={valor} required checked={form.habilitado===valor} onChange={()=>setForm(v=>({...v,habilitado:valor}))}/>{rotulo}</label>)}
+      </div>
+     </fieldset>
      <div className="rounded-xl border border-slate-200 p-4 space-y-3"><h2 className="font-semibold">Confirmar telefone cadastrado</h2>
       <p className="text-sm text-slate-600">Enviaremos um código ao WhatsApp registrado no lead. O telefone preenchido acima precisa ser o mesmo número.</p>
       <button type="button" disabled={busy} onClick={()=>void pedirCodigo()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Enviar código pelo WhatsApp</button>
@@ -56,7 +62,7 @@ export default function FichaClientePublica(){
      <button disabled={busy||!consentimento} type="submit" className="w-full rounded-xl px-5 py-4 text-sm font-semibold text-white disabled:opacity-50" style={{backgroundColor:tema.cor_primaria}}>{busy?'Processando...':'Confirmar e enviar ficha'}</button>
     </form>}
    </section>
-   <footer className="border-t border-slate-200 p-4 text-center text-xs text-slate-500">AUROX · Portal temporário de dados · Conexão HTTPS · Não compartilhe seu link</footer>
+   <footer className="border-t border-slate-200 p-4 text-center text-xs text-slate-500">Atendimento da concessionária · Formulário temporário · Não compartilhe seu link</footer>
   </div>
  </main>;
 }

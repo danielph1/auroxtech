@@ -107,9 +107,9 @@ export async function PATCH(req:NextRequest,{params}:Ctx){
     if(b.acao==='aprovado'){
       const d=decifrarDados(c.payload_cifrado);
       // Campos estritamente aprovados. O cliente nao muda banco, empresa, responsavel ou status.
-      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12,telefone=$16,produto_interesse=$17,carro_selecionado=$17,valor_entrada=$18
+      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12,telefone=$16,produto_interesse=$17,carro_selecionado=$17,valor_entrada=$18,habilitado=COALESCE($19::boolean,habilitado)
        WHERE id=$13 AND empresa_id=$14 AND vendedor_id=$15 RETURNING id`,
-       [d.nome_completo,d.cpf,d.data_nascimento,d.rg||null,d.nome_mae||null,d.email||null,d.cep||null,d.endereco||null,d.bairro||null,d.cidade||null,d.estado||null,d.salario?Number(String(d.salario).replace(',','.')):null,s.f.lead_id,s.f.empresa_id,s.f.vendedor_id,d.telefone,d.carro_interesse,Number(String(d.valor_entrada).replace(',','.'))]);
+       [d.nome_completo,d.cpf,d.data_nascimento,d.rg||null,d.nome_mae||null,d.email||null,d.cep||null,d.endereco||null,d.bairro||null,d.cidade||null,d.estado||null,d.salario?Number(String(d.salario).replace(',','.')):null,s.f.lead_id,s.f.empresa_id,s.f.vendedor_id,d.telefone,d.carro_interesse,Number(String(d.valor_entrada).replace(',','.')),d.habilitado==='sim'?true:d.habilitado==='nao'?false:null]);
       if(!q.rowCount)throw Error('Lead alterado ou fora do escopo');
     }
     await db.query(`UPDATE public.aurox_ficha_portal_respostas SET status=$1,revisado_por=$2,revisado_em=now() WHERE convite_id=$3 AND empresa_id=$4 AND status='pendente'`,[b.acao,s.u.id,c.id,s.f.empresa_id]);

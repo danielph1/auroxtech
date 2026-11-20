@@ -10,7 +10,7 @@ import {Link2,ShieldCheck,Send,RefreshCw,SquareArrowOutUpRight} from 'lucide-rea
 type Convite={id:string;criado_em:string;expira_em:string;usado_em:string|null;revogado_em:string|null;enviado_whatsapp:boolean;status?:string;dados?:Record<string,unknown>|null};
 const button='inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold hover:border-primary disabled:opacity-50';
 const privates=new Set(['superadmin','admin','gerente','vendedor']);
-const campos:Record<string,string>={nome_completo:'Nome completo',cpf:'CPF',data_nascimento:'Nascimento',telefone:'Telefone',carro_interesse:'Carro de interesse',valor_entrada:'Entrada pretendida (R$)',rg:'RG',nome_mae:'Nome da mãe',email:'E-mail',endereco:'Endereço',bairro:'Bairro',cidade:'Cidade',estado:'UF',cep:'CEP',salario:'Renda declarada'};
+const campos:Record<string,string>={nome_completo:'Nome completo',cpf:'CPF',data_nascimento:'Nascimento',telefone:'Telefone',carro_interesse:'Veículo de interesse',habilitado:'Habilitado (CNH)',valor_entrada:'Entrada pretendida (R$)',rg:'RG',nome_mae:'Nome da mãe',email:'E-mail',endereco:'Endereço',bairro:'Bairro',cidade:'Cidade',estado:'UF',cep:'CEP',salario:'Renda declarada'};
 export function FichaPortalAcoes({fichaId}:{fichaId:number}){
  const {user}=useAuth();const [rows,setRows]=useState<Convite[]>([]),[link,setLink]=useState(''),[expires,setExpires]=useState('');
  const [busy,setBusy]=useState(false),[ativos,setAtivos]=useState(0);
@@ -50,7 +50,7 @@ export function FichaPortalAcoes({fichaId}:{fichaId:number}){
   </div>}
   {rows.length>0&&<div className="space-y-2"><h4 className="text-sm font-semibold">Convites recentes</h4>{rows.map(c=><div key={c.id} className="rounded-lg border border-border bg-card p-3 text-xs space-y-2">
    <div className="flex flex-wrap justify-between gap-1"><span>{new Date(c.criado_em).toLocaleString('pt-BR')}</span><strong>{c.status==='pendente'?'Aguardando conferência':c.status==='aprovado'?'Dados conferidos':c.status==='recusado'?'Resposta recusada':c.usado_em?'Recebido':c.revogado_em?'Revogado':new Date(c.expira_em)<=new Date()?'Expirado':'Aguardando cliente'}</strong></div>
-   {c.status==='pendente'&&c.dados&&<div className="rounded-md bg-muted/50 p-3 grid gap-1 sm:grid-cols-2">{Object.entries(campos).map(([key,label])=><div key={key} className="break-all"><span className="text-muted-foreground">{label}: </span><strong>{String(c.dados?.[key]||'—')}</strong></div>)}</div>}
+   {c.status==='pendente'&&c.dados&&<div className="rounded-md bg-muted/50 p-3 grid gap-1 sm:grid-cols-2">{Object.entries(campos).map(([key,label])=><div key={key} className="break-all"><span className="text-muted-foreground">{label}: </span><strong>{key==='habilitado'?(c.dados?.habilitado==='sim'?'Sim':c.dados?.habilitado==='nao'?'Não':'—'):String(c.dados?.[key]||'—')}</strong></div>)}</div>}
    <div className="flex flex-wrap gap-2">{c.status==='pendente'&&<><button type="button" className={button} disabled={busy} onClick={()=>void acao(c.id,'aprovado')}>Conferir e aplicar</button><button type="button" className={button} disabled={busy} onClick={()=>void acao(c.id,'recusado')}>Recusar</button></>}
    {!c.usado_em&&!c.revogado_em&&<button type="button" className={button} disabled={busy} onClick={()=>void acao(c.id,'revogar')}>Revogar link</button>}</div>
   </div>)}</div>}

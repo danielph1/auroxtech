@@ -58,7 +58,9 @@ export async function POST(req:NextRequest){
     await db.query('COMMIT');
    }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e}finally{db.release()}
    // O numero vem SOMENTE do lead da empresa, nunca do input do visitante.
-   const sent=await sendAuroxMessage(row!.empresa_id,row!.lead_id,`Codigo temporario de confirmacao da ficha AUROX: ${code}. Valido por ate 5 minutos. Nao compartilhe.`,row!.telefone);
+   const empresaDoConvite=await queryOne<{nome:string}>(`SELECT nome FROM public.empresas WHERE id=$1 AND ativo=TRUE`,[row!.empresa_id]);
+   const identidade=String(empresaDoConvite?.nome||'sua concessionária').slice(0,100);
+   const sent=await sendAuroxMessage(row!.empresa_id,row!.lead_id,`Código temporário da ficha de cadastro de ${identidade}: ${code}. Válido por até 5 minutos. Não compartilhe.`,row!.telefone);
    if(!sent.ok||sent.status!=='sent_to_provider')return json({error:'Nao foi possivel confirmar o envio do codigo. Solicite suporte ao vendedor.'},503);
    return json({ok:true,message:'Codigo enviado pelo WhatsApp do cadastro.'});
   }
