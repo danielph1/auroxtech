@@ -1,4 +1,5 @@
 'use client';
+import {LeadPortalAcoes} from '@/components/lead-portal-acoes';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -65,6 +66,7 @@ export function LeadEditDialog({ lead, onClose }: { lead: Lead | null; onClose: 
           </DialogTitle>
         </DialogHeader>
 
+        <LeadPortalAcoes leadId={Number(lead.id)}/>
         <form onSubmit={save} className="space-y-5">
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Nome completo" value={form.nome_completo || form.nome_lead} onChange={(v) => setForm({ ...form, nome_completo: v, nome_lead: v })} disabled={!canEdit} />

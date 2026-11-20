@@ -10,12 +10,12 @@ import {Link2,ShieldCheck,Send,RefreshCw,SquareArrowOutUpRight} from 'lucide-rea
 type Convite={id:string;criado_em:string;expira_em:string;usado_em:string|null;revogado_em:string|null;enviado_whatsapp:boolean;status?:string;dados?:Record<string,unknown>|null};
 const button='inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold hover:border-primary disabled:opacity-50';
 const privates=new Set(['superadmin','admin','gerente','vendedor']);
-const campos:Record<string,string>={nome_completo:'Nome completo',cpf:'CPF',data_nascimento:'Nascimento',rg:'RG',nome_mae:'Nome da mãe',email:'E-mail',endereco:'Endereço',bairro:'Bairro',cidade:'Cidade',estado:'UF',cep:'CEP',salario:'Renda declarada'};
+const campos:Record<string,string>={nome_completo:'Nome completo',cpf:'CPF',data_nascimento:'Nascimento',telefone:'Telefone',carro_interesse:'Carro de interesse',valor_entrada:'Entrada pretendida (R$)',rg:'RG',nome_mae:'Nome da mãe',email:'E-mail',endereco:'Endereço',bairro:'Bairro',cidade:'Cidade',estado:'UF',cep:'CEP',salario:'Renda declarada'};
 export function FichaPortalAcoes({fichaId}:{fichaId:number}){
  const {user}=useAuth();const [rows,setRows]=useState<Convite[]>([]),[link,setLink]=useState(''),[expires,setExpires]=useState('');
- const [busy,setBusy]=useState(false);
+ const [busy,setBusy]=useState(false),[ativos,setAtivos]=useState(0);
  const cargo=String(user?.tipo||'').toLowerCase();
- async function refresh(){try{const r=await api.get(`/fichas/${fichaId}/convite`);setRows(r.data.convites||[])}catch{}}
+ async function refresh(){try{const r=await api.get(`/fichas/${fichaId}/convite`);setRows(r.data.convites||[]);setAtivos(Number(r.data.convites_ativos||0))}catch{}}
  useEffect(()=>{setRows([]);setLink('');setExpires('');if(fichaId)void refresh()},[fichaId]);
  if(!privates.has(cargo))return null;
  async function gerar(modo:'whatsapp'|'qr'){
@@ -33,14 +33,15 @@ export function FichaPortalAcoes({fichaId}:{fichaId:number}){
  }
  return <section className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3" aria-label="Ficha para o cliente">
   <div className="flex flex-wrap justify-between gap-2"><div><h3 className="flex items-center gap-2 font-semibold"><ShieldCheck size={17}/> Ficha para o cliente</h3>
-   <p className="text-xs text-muted-foreground mt-1">30 minutos · validação pelo WhatsApp · um uso · responsabilidade do vendedor original</p></div>
+   <p className="text-xs text-muted-foreground mt-1">30 minutos · um uso · até 3 clientes ativos por vendedor · vínculo ao vendedor responsável</p></div>
    <button type="button" className={button} onClick={()=>void refresh()}><RefreshCw size={14}/> Atualizar</button></div>
   <div className="flex flex-wrap gap-2">
-   <button type="button" className={button} disabled={busy} onClick={()=>void gerar('whatsapp')}><Send size={15}/> Enviar pelo Aurox-WhatsApp</button>
-   <button type="button" className={button} disabled={busy} onClick={()=>void gerar('qr')}><Link2 size={15}/> Gerar QR Code / link</button>
+   <button type="button" className={button} disabled={busy||ativos>=3} onClick={()=>void gerar('whatsapp')}><Send size={15}/> Enviar pelo Aurox-WhatsApp</button>
+   <button type="button" className={button} disabled={busy||ativos>=3} onClick={()=>void gerar('qr')}><Link2 size={15}/> Gerar QR Code / link</button>
    {['admin','gerente','superadmin'].includes(cargo)&&<Link href="/fichas/personalizacao" className={button}>Personalizar página <SquareArrowOutUpRight size={14}/></Link>}
   </div>
-  {link&&<div className="flex flex-col items-center gap-3 rounded-xl bg-card p-4 text-sm sm:flex-row sm:items-start">
+  {ativos>=3&&<p className="text-xs text-amber-700 dark:text-amber-400">Limite atingido: aguarde um convite expirar ou ser utilizado antes de gerar outro.</p>}
+   {link&&<div className="flex flex-col items-center gap-3 rounded-xl bg-card p-4 text-sm sm:flex-row sm:items-start">
    <div className="rounded-lg bg-white p-3"><QRCodeSVG value={link} size={155} level="M" marginSize={3}/></div>
    <div className="min-w-0 flex-1 space-y-2"><p className="font-medium">Link temporário gerado</p><p className="break-all text-xs text-muted-foreground">{link}</p>
    <p className="text-xs">Expira em: {new Date(expires).toLocaleString('pt-BR')}</p>

@@ -46,6 +46,9 @@ export function cpfValido(cpf:string):boolean{
 }
 export const respostaSchema=z.object({
  nome_completo:z.string().trim().min(5).max(150),
+ telefone:z.string().trim().regex(/^[+()0-9\s-]{10,24}$/),
+ carro_interesse:z.string().trim().min(2).max(150),
+ valor_entrada:z.string().trim().regex(/^\d{1,9}(?:[,.]\d{1,2})?$/),
  cpf:z.string().transform(v=>v.replace(/\D/g,'')).refine(cpfValido,'CPF inválido'),
  data_nascimento:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s=>{
   const d=new Date(`${s}T12:00:00Z`);if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==s)return false;
@@ -93,5 +96,9 @@ export const temaSchema=z.object({
  cor_fundo:z.string().regex(/^#[0-9a-fA-F]{6}$/),
  cor_texto:z.string().regex(/^#[0-9a-fA-F]{6}$/),
  logo_data_uri:z.unknown(),
+ campanha:z.enum(['institucional','promocao','feirao','natal','ofertao']),
+ modo_banner:z.enum(['nenhum','estatico','carrossel']),
+ banners:z.array(z.number().int().min(0).max(3)).max(3).refine(v=>new Set(v).size===v.length),
+ empresa_nome:z.string().max(150).optional(),
 }).strict();
-export const TEMA_PADRAO={titulo:'Ficha de cadastro',mensagem:'Preencha seus dados com segurança. Sua concessionária receberá as informações para conferência.',cor_primaria:'#0F766E',cor_fundo:'#F8FAFC',cor_texto:'#0F172A',logo_data_uri:null as string|null};
+export {TEMA_PADRAO} from './ficha-portal-tema';

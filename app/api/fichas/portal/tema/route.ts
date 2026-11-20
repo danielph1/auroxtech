@@ -22,22 +22,23 @@ async function contexto(req:NextRequest,body?:any){
 }
 export async function GET(req:NextRequest){
  try{const s=await contexto(req);if(!s)return respond({error:'Sem acesso'},403);
- const theme=await queryOne(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri FROM public.aurox_ficha_portal_temas WHERE empresa_id=$1 AND loja=$2`,[s.empresaId,s.loja]);
- return respond({tema:theme||TEMA_PADRAO,empresa_id:s.empresaId,loja:s.loja});
+ const theme=await queryOne(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,campanha,modo_banner,banners FROM public.aurox_ficha_portal_temas WHERE empresa_id=$1 AND loja=$2`,[s.empresaId,s.loja]);
+ const empresa=await queryOne<{nome:string}>(`SELECT nome FROM public.empresas WHERE id=$1`,[s.empresaId]);
+ return respond({tema:{...TEMA_PADRAO,...theme,empresa_nome:empresa?.nome||'Concessionária'},empresa_id:s.empresaId,loja:s.loja});
  }catch{return respond({error:'Nao foi possivel consultar tema'},503)}
 }
 export async function PUT(req:NextRequest){
  const b=await req.json().catch(()=>null);
  try{const s=await contexto(req,b);if(!s)return respond({error:'Sem permissao para alterar esta loja'},403);
  const parsed=temaSchema.safeParse(b?.tema);if(!parsed.success)return respond({error:'Cores, logo ou texto invalidos'},400);
- const theme={...parsed.data,logo_data_uri:await parseLogo(parsed.data.logo_data_uri)};
+ const {empresa_nome:_ignored,...safe}=parsed.data;const theme={...safe,logo_data_uri:await parseLogo(parsed.data.logo_data_uri)};
  await query(`INSERT INTO public.aurox_ficha_portal_temas
- (empresa_id,loja,titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,atualizado_por)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+ (empresa_id,loja,titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,atualizado_por,campanha,modo_banner,banners)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
  ON CONFLICT(empresa_id,loja) DO UPDATE SET titulo=EXCLUDED.titulo,mensagem=EXCLUDED.mensagem,
  cor_primaria=EXCLUDED.cor_primaria,cor_fundo=EXCLUDED.cor_fundo,cor_texto=EXCLUDED.cor_texto,
- logo_data_uri=EXCLUDED.logo_data_uri,atualizado_por=EXCLUDED.atualizado_por,atualizado_em=now()`,
- [s.empresaId,s.loja,theme.titulo,theme.mensagem,theme.cor_primaria,theme.cor_fundo,theme.cor_texto,theme.logo_data_uri,s.u.id]);
+ logo_data_uri=EXCLUDED.logo_data_uri,campanha=EXCLUDED.campanha,modo_banner=EXCLUDED.modo_banner,banners=EXCLUDED.banners,atualizado_por=EXCLUDED.atualizado_por,atualizado_em=now()`,
+ [s.empresaId,s.loja,theme.titulo,theme.mensagem,theme.cor_primaria,theme.cor_fundo,theme.cor_texto,theme.logo_data_uri,s.u.id,theme.campanha,theme.modo_banner,theme.banners]);
  return respond({ok:true});
  }catch{return respond({error:'Nao foi possivel salvar tema'},503)}
 }

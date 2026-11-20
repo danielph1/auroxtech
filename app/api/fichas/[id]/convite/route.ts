@@ -29,7 +29,8 @@ export async function GET(req:NextRequest,{params}:Ctx){
  FROM public.aurox_ficha_portal_convites c LEFT JOIN public.aurox_ficha_portal_respostas r ON r.convite_id=c.id AND r.empresa_id=c.empresa_id
  WHERE c.empresa_id=$1 AND c.ficha_id=$2 ORDER BY c.criado_em DESC LIMIT 5`,[s.f.empresa_id,id]);
  const convites=rows.map(r=>{const {payload_cifrado,...c}=r;return {...c,dados:r.status==='pendente'&&payload_cifrado?decifrarDados(payload_cifrado):null}});
- return json({convites,responsavel_vendedor_id:s.f.vendedor_id});
+ const active=await queryOne<{n:number}>(`SELECT count(DISTINCT lead_id)::int AS n FROM public.aurox_ficha_portal_convites WHERE empresa_id=$1 AND vendedor_id=$2 AND usado_em IS NULL AND revogado_em IS NULL AND expira_em>now()`,[s.f.empresa_id,s.f.vendedor_id]);
+ return json({convites,responsavel_vendedor_id:s.f.vendedor_id,convites_ativos:active?.n||0,limite_convites:3});
  }catch{return json({error:'Falha ao consultar convites'},503)}
 }
 export async function POST(req:NextRequest,{params}:Ctx){
@@ -54,10 +55,18 @@ export async function POST(req:NextRequest,{params}:Ctx){
   await db.query('BEGIN');
   const locked=await db.query('SELECT id FROM public.fichas_credito WHERE id=$1 FOR UPDATE',[id]);
   if(!locked.rowCount)throw Error('Ficha inexistente');
-  const c=await db.query(`SELECT count(*)::int AS n FROM public.aurox_ficha_portal_convites
-   WHERE ficha_id=$1 AND empresa_id=$2 AND criado_em > now()-interval '1 hour'`,[id,s.f.empresa_id]);
-  if(Number(c.rows[0].n)>=5){await db.query('ROLLBACK');return json({error:'Limite de 5 convites por ficha/hora. Aguarde antes de gerar outro.'},429);}
-  await db.query(`UPDATE public.aurox_ficha_portal_convites SET revogado_em=now() WHERE ficha_id=$1 AND empresa_id=$2 AND usado_em IS NULL AND revogado_em IS NULL`,[id,s.f.empresa_id]);
+  // Serialização interempresas e entre requisições concorrentes do mesmo vendedor/cliente.
+  // Nao depende de indice parcial com NOW(), que o PostgreSQL nao permite.
+  await db.query('SELECT pg_advisory_xact_lock(914206,$1::int)',[s.f.lead_id]);
+  await db.query('SELECT pg_advisory_xact_lock(914205,$1::int)',[s.f.vendedor_id]);
+  const older=await db.query(`SELECT id,expira_em FROM public.aurox_ficha_portal_convites
+   WHERE empresa_id=$1 AND lead_id=$2 AND usado_em IS NULL AND expira_em>now()
+   LIMIT 1`,[s.f.empresa_id,s.f.lead_id]);
+  if(older.rowCount){await db.query('ROLLBACK');return json({error:'Este cliente já possui um link ativo. Aguarde expirar; não é permitido gerar outro agora.',expira_em:older.rows[0].expira_em},409);}
+  const c=await db.query(`SELECT count(DISTINCT lead_id)::int AS n FROM public.aurox_ficha_portal_convites
+   WHERE empresa_id=$1 AND vendedor_id=$2 AND usado_em IS NULL AND revogado_em IS NULL AND expira_em>now()`,[s.f.empresa_id,s.f.vendedor_id]);
+  if(Number(c.rows[0].n)>=3){await db.query('ROLLBACK');return json({error:'O vendedor já tem 3 clientes com convites ativos. Aguarde expirar um convite.',ativos:3},429);}
+
   const saved=await db.query(`INSERT INTO public.aurox_ficha_portal_convites
    (empresa_id,ficha_id,lead_id,vendedor_id,criado_por,token_hash,expira_em)
    VALUES($1,$2,$3,$4,$5,$6,now()+interval '30 minutes') RETURNING id`,
@@ -98,9 +107,9 @@ export async function PATCH(req:NextRequest,{params}:Ctx){
     if(b.acao==='aprovado'){
       const d=decifrarDados(c.payload_cifrado);
       // Campos estritamente aprovados. O cliente nao muda banco, empresa, responsavel ou status.
-      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12
+      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12,telefone=$16,produto_interesse=$17,carro_selecionado=$17,valor_entrada=$18
        WHERE id=$13 AND empresa_id=$14 AND vendedor_id=$15 RETURNING id`,
-       [d.nome_completo,d.cpf,d.data_nascimento,d.rg||null,d.nome_mae||null,d.email||null,d.cep||null,d.endereco||null,d.bairro||null,d.cidade||null,d.estado||null,d.salario?Number(String(d.salario).replace(',','.')):null,s.f.lead_id,s.f.empresa_id,s.f.vendedor_id]);
+       [d.nome_completo,d.cpf,d.data_nascimento,d.rg||null,d.nome_mae||null,d.email||null,d.cep||null,d.endereco||null,d.bairro||null,d.cidade||null,d.estado||null,d.salario?Number(String(d.salario).replace(',','.')):null,s.f.lead_id,s.f.empresa_id,s.f.vendedor_id,d.telefone,d.carro_interesse,Number(String(d.valor_entrada).replace(',','.'))]);
       if(!q.rowCount)throw Error('Lead alterado ou fora do escopo');
     }
     await db.query(`UPDATE public.aurox_ficha_portal_respostas SET status=$1,revisado_por=$2,revisado_em=now() WHERE convite_id=$3 AND empresa_id=$4 AND status='pendente'`,[b.acao,s.u.id,c.id,s.f.empresa_id]);
