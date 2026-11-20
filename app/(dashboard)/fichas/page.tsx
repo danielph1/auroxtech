@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { CarLoader } from '@/components/car-loader';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -103,6 +104,7 @@ export default function FichasPage() {
             {t('page.fichas.sub')}
           </p>
         </div>
+        {['superadmin','admin','gerente','marketing'].includes(String(user?.tipo||'').toLowerCase())&&<Link href="/fichas/personalizacao" className="rounded-lg border border-primary px-3 py-2 text-sm font-semibold">Personalizar página do cliente</Link>}
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={t('page.fichas.search')} className="mr-2 rounded border border-border bg-card px-3 py-1.5 text-sm" />
         <select
           className="mr-2 rounded border border-border bg-card px-3 py-1.5 text-sm"

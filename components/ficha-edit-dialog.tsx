@@ -1,4 +1,5 @@
 'use client';
+import {FichaPortalAcoes} from '@/components/ficha-portal-acoes';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -240,6 +241,8 @@ export function FichaEditDialog({ fichaId, onClose }: { fichaId: number | null; 
             {estadoSalvar === 'salvando' ? 'Salvando alterações…' : estadoSalvar === 'pendente' ? 'Alterações pendentes de sincronização…' : estadoSalvar === 'salvo' ? 'Todas as alterações foram salvas automaticamente.' : estadoSalvar === 'erro' ? 'Falha ao salvar automaticamente. Confira a conexão antes de fechar.' : 'Alterações serão salvas automaticamente.'}
           </p>}
         </DialogHeader>
+
+        <FichaPortalAcoes fichaId={fichaId}/>
 
         <form onSubmit={save} className="space-y-5">
           {/* Dados do vendedor (sempre read-only aqui) */}
