@@ -47,7 +47,8 @@ export function cpfValido(cpf:string):boolean{
 export const respostaSchema=z.object({
  nome_completo:z.string().trim().min(5).max(150),
  telefone:z.string().trim().regex(/^[+()0-9\s-]{10,24}$/),
- carro_interesse:z.string().trim().min(2).max(150),
+ // A obrigatoriedade depende da configuracao validada no servidor para empresa/loja.
+ carro_interesse:z.string().trim().max(150).default(''),
  habilitado:z.enum(['sim','nao']),
  valor_entrada:z.string().trim().regex(/^\d{1,9}(?:[,.]\d{1,2})?$/),
  cpf:z.string().transform(v=>v.replace(/\D/g,'')).refine(cpfValido,'CPF inválido'),
@@ -101,5 +102,6 @@ export const temaSchema=z.object({
  modo_banner:z.enum(['nenhum','estatico','carrossel']),
  banners:z.array(z.number().int().min(0).max(3)).max(3).refine(v=>new Set(v).size===v.length),
  empresa_nome:z.string().max(150).optional(),
+ veiculo_obrigatorio:z.boolean().default(true),
 }).strict();
 export {TEMA_PADRAO} from './ficha-portal-tema';

@@ -36,7 +36,7 @@ export async function POST(req:NextRequest){
  try{
   if(b.acao==='consultar'){
    const row=await queryOne<Row>(baseSql,[hash]);if(!row)return json({error:'Este link nao esta mais disponivel. Solicite outro ao vendedor.'},410);
-   const theme=await queryOne<any>(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,campanha,modo_banner,banners FROM public.aurox_ficha_portal_temas
+   const theme=await queryOne<any>(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,campanha,modo_banner,banners,veiculo_obrigatorio FROM public.aurox_ficha_portal_temas
     WHERE empresa_id=$1 AND loja IN ($2,'') ORDER BY (loja=$2) DESC LIMIT 1`,[row.empresa_id,row.loja||'']);
    const empresa=await queryOne<{nome:string}>(`SELECT nome FROM public.empresas WHERE id=$1`,[row.empresa_id]);
    return json({ok:true,tema:{...TEMA_PADRAO,...theme,empresa_nome:empresa?.nome||'Concessionária'},exige_codigo:true});
@@ -74,6 +74,14 @@ export async function POST(req:NextRequest){
     const q=await db.query<Row>(baseSql+' FOR UPDATE OF c',[hash]);
     if(!q.rowCount){await db.query('ROLLBACK');return json({error:'Link expirado ou ja utilizado'},410)}
     const r=q.rows[0];
+    // A obrigatoriedade pertence ao servidor/loja, nunca ao JSON do navegador.
+    const regra=await db.query<{veiculo_obrigatorio:boolean}>(`SELECT veiculo_obrigatorio
+      FROM public.aurox_ficha_portal_temas WHERE empresa_id=$1 AND loja IN ($2,'')
+      ORDER BY (loja=$2) DESC LIMIT 1`,[r.empresa_id,r.loja||'']);
+    const veiculoObrigatorio=regra.rows[0]?.veiculo_obrigatorio!==false;
+    if(veiculoObrigatorio && String(parsed.data.carro_interesse||'').trim().length<2){
+      await db.query('ROLLBACK');return json({error:'Informe o veículo de interesse para esta concessionária.'},400);
+    }
     const clean=(v:string)=>v.replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'');
     if(clean(parsed.data.telefone)!==clean(r.telefone||'')){await db.query('ROLLBACK');return json({error:'Telefone diferente do cadastrado. Solicite correção ao vendedor.'},400);}
     if(Number(r.codigo_tentativas)>=5){await db.query('ROLLBACK');return json({error:'Link bloqueado; solicite outro ao vendedor'},429)}

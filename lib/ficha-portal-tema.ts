@@ -21,4 +21,5 @@ export const TEMA_PADRAO={
  modo_banner:'nenhum' as BannerModo,
  banners:[0,1,2] as number[],
  empresa_nome:'Concessionária',
+ veiculo_obrigatorio:true as boolean,
 };

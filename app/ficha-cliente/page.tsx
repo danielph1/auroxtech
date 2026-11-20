@@ -7,7 +7,7 @@ import {FichaPortalBanner} from '@/components/ficha-portal-banner';
 type Tema=typeof TEMA_PADRAO;
 const inputs:ReadonlyArray<[string,string,string,boolean]>=[
  ['nome_completo','Nome completo','text',true],['telefone','Telefone (WhatsApp)','tel',true],['cpf','CPF','text',true],['data_nascimento','Data de nascimento','date',true],
- ['carro_interesse','Veículo de interesse','text',true],['valor_entrada','Valor de entrada (R$)','text',true],
+ ['carro_interesse','Veículo de interesse','text',false],['valor_entrada','Valor de entrada (R$)','text',true],
  ['rg','RG','text',false],['nome_mae','Nome da mãe','text',false],['email','E-mail','email',false],
  ['cep','CEP','text',false],['endereco','Endereço','text',false],['bairro','Bairro','text',false],
  ['cidade','Cidade','text',false],['estado','UF (sigla)','text',false],['salario','Renda mensal declarada (R$)','text',false],
@@ -42,9 +42,9 @@ export default function FichaClientePublica(){
     {estado==='concluido'&&<div className="space-y-2 rounded-xl bg-emerald-50 p-6 text-emerald-900" role="status"><CheckCircle2 size={30}/><h2 className="text-xl font-semibold">Dados recebidos!</h2><p>Seu link foi encerrado. O vendedor responsável fará a conferência das informações.</p></div>}
     {estado==='pronto'&&<form className="space-y-5" onSubmit={enviar} autoComplete="on">
      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm"><LockKeyhole size={18} className="mb-2"/><strong>Link de uso único</strong><p className="mt-1 text-slate-600">Seu cadastro é enviado somente à concessionária responsável. Não informe senhas bancárias e nunca envie códigos recebidos para terceiros.</p></div>
-     <div className="grid gap-4 sm:grid-cols-2">{inputs.map(([key,label,type,required])=><label key={key} className="text-sm font-medium">{label}{required?' *':''}
-       <input name={key} type={type} className={input} required={required} maxLength={key==='nome_completo'?150:key==='email'?200:key==='carro_interesse'?150:key==='telefone'?24:key==='valor_entrada'?15:key==='endereco'?220:120} value={form[key]||''} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>
-      </label>)}</div>
+     <div className="grid gap-4 sm:grid-cols-2">{inputs.map(([key,label,type,required])=>{const obrigatorio=key==='carro_interesse'?tema.veiculo_obrigatorio!==false:required;return <label key={key} className="text-sm font-medium">{label}{obrigatorio?' *':' (opcional)'}
+       <input name={key} type={type} className={input} required={obrigatorio} maxLength={key==='nome_completo'?150:key==='email'?200:key==='carro_interesse'?150:key==='telefone'?24:key==='valor_entrada'?15:key==='endereco'?220:120} value={form[key]||''} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))}/>
+      </label>})}</div>
      <fieldset className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <legend className="px-1 text-sm font-semibold">Habilitado — possui CNH? *</legend>
       <div className="mt-2 flex flex-wrap gap-5">

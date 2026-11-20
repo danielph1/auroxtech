@@ -1,4 +1,5 @@
 import {NextRequest,NextResponse} from 'next/server';
+import {randomUUID} from 'node:crypto';
 import {getPool,query,queryOne} from '@/lib/db';
 import {requireUser,type SessionUser} from '@/lib/session';
 import {fichaAcessivel} from '@/lib/ficha-access';
@@ -77,14 +78,31 @@ export async function POST(req:NextRequest,{params}:Ctx){
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
  let enviado=false, aviso='';
  if(b.modo==='whatsapp'){
-  const delivery=await sendAuroxMessage(s.f.empresa_id,s.f.lead_id,`Sua ficha de cadastro segura está disponível por 30 minutos: ${url}\nAo concluir, o link é desativado. Não compartilhe com terceiros.`,s.f.telefone);
-  enviado=delivery.ok&&delivery.status==='sent_to_provider';
-  if(enviado){await query(`UPDATE public.aurox_ficha_portal_convites SET enviado_whatsapp=TRUE WHERE id=$1 AND empresa_id=$2`,[conviteId,s.f.empresa_id]);
-   await query(`INSERT INTO public.aurox_ficha_portal_auditoria(convite_id,empresa_id,ator_id,evento) VALUES($1,$2,$3,'link_enviado')`,[conviteId,s.f.empresa_id,s.u.id]);
-  }else aviso='O envio pelo WhatsApp nao foi confirmado. Confira a conexao; o link/QR continua disponivel.';
+  try{
+   const delivery=await sendAuroxMessage(s.f.empresa_id,s.f.lead_id,`Sua ficha de cadastro segura está disponível por 30 minutos: ${url}\nAo concluir, o link é desativado. Não compartilhe com terceiros.`,s.f.telefone);
+   enviado=delivery.ok&&delivery.status==='sent_to_provider';
+   if(enviado){
+    // Falhas no registro auxiliar NÃO podem transformar convite criado em HTTP 503.
+    try{
+     await query(`UPDATE public.aurox_ficha_portal_convites SET enviado_whatsapp=TRUE WHERE id=$1 AND empresa_id=$2`,[conviteId,s.f.empresa_id]);
+     await query(`INSERT INTO public.aurox_ficha_portal_auditoria(convite_id,empresa_id,ator_id,evento) VALUES($1,$2,$3,'link_enviado')`,[conviteId,s.f.empresa_id,s.u.id]);
+    }catch(err:any){console.error('[ficha-portal] falha em auditoria de envio',err?.code||'indefinido')}
+   }else aviso='O envio pelo WhatsApp não foi confirmado. O convite foi criado; utilize o QR/link disponível ou confira a conexão.';
+  }catch(err:any){console.error('[ficha-portal] transporte WhatsApp',err?.code||'indefinido');aviso='O convite foi criado, mas o WhatsApp não confirmou o envio. Utilize o QR/link.';}
  }
  return json({ok:true,link:url,expira_em:new Date(Date.now()+30*60000).toISOString(),whatsapp_enviado:enviado,aviso,responsavel_vendedor_id:s.f.vendedor_id},201);
- }catch(e){console.error('[ficha-portal] convite',e instanceof Error?e.name:'erro');return json({error:'Nao foi possivel gerar convite. Confira migracao e seguranca.'},503);}
+ }catch(e:any){
+  const ref=randomUUID().slice(0,8);
+  // Somente os logs internos recebem detalhes do banco. Não retornar SQL/chaves ao navegador.
+  const codigo=String(e?.code||'');
+  const mensagem=String(e?.message||'');
+  console.error('[ficha-portal] convite',ref,{codigo,erro:mensagem.slice(0,250),constraint:String(e?.constraint||'').slice(0,70)});
+  if(mensagem.includes('AUROX_FICHA_PORTAL_SECRET'))return json({error:'Portal indisponível: configuração de segurança ausente. Contate o responsável técnico.',codigo:'CONFIG_SEGURANCA',referencia:ref},503);
+  if(codigo==='42P01'||codigo==='42703')return json({error:'Portal indisponível: migração do banco incompleta. Contate o responsável técnico.',codigo:'MIGRACAO_PENDENTE',referencia:ref},503);
+  if(codigo==='23514'||codigo==='23503')return json({error:'A ficha não pôde ser vinculada: confira o vendedor responsável, a empresa e o cadastro.',codigo:'VINCULO_INVALIDO',referencia:ref},409);
+  if(codigo==='42501')return json({error:'Permissão do banco insuficiente para gerar o convite. Contate o responsável técnico.',codigo:'PERMISSAO_BANCO',referencia:ref},503);
+  return json({error:'Não foi possível gerar convite. Informe a referência ao suporte.',codigo:'FALHA_INTERNA',referencia:ref},503);
+ }
 }
 export async function PATCH(req:NextRequest,{params}:Ctx){
  const b=await req.json().catch(()=>null);
@@ -107,7 +125,7 @@ export async function PATCH(req:NextRequest,{params}:Ctx){
     if(b.acao==='aprovado'){
       const d=decifrarDados(c.payload_cifrado);
       // Campos estritamente aprovados. O cliente nao muda banco, empresa, responsavel ou status.
-      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12,telefone=$16,produto_interesse=$17,carro_selecionado=$17,valor_entrada=$18,habilitado=COALESCE($19::boolean,habilitado)
+      const q=await db.query(`UPDATE public.leads SET nome_completo=$1,cpf=$2,data_nascimento=$3,rg=$4,nome_mae=$5,email=$6,cep=$7,endereco=$8,bairro=$9,cidade=$10,estado=$11,salario=$12,telefone=$16,produto_interesse=COALESCE(NULLIF($17::text,''),produto_interesse),carro_selecionado=COALESCE(NULLIF($17::text,''),carro_selecionado),valor_entrada=$18,habilitado=COALESCE($19::boolean,habilitado)
        WHERE id=$13 AND empresa_id=$14 AND vendedor_id=$15 RETURNING id`,
        [d.nome_completo,d.cpf,d.data_nascimento,d.rg||null,d.nome_mae||null,d.email||null,d.cep||null,d.endereco||null,d.bairro||null,d.cidade||null,d.estado||null,d.salario?Number(String(d.salario).replace(',','.')):null,s.f.lead_id,s.f.empresa_id,s.f.vendedor_id,d.telefone,d.carro_interesse,Number(String(d.valor_entrada).replace(',','.')),d.habilitado==='sim'?true:d.habilitado==='nao'?false:null]);
       if(!q.rowCount)throw Error('Lead alterado ou fora do escopo');
