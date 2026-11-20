@@ -91,6 +91,7 @@ export async function parseLogo(raw:unknown):Promise<string|null>{
  if(optimized.length>110000)throw Error('Logo processada excede o limite de 110 KB');
  return `data:image/png;base64,${optimized.toString('base64')}`;
 }
+import {CONTEUDOS_BANNER_PADRAO} from './ficha-portal-tema';
 export const temaSchema=z.object({
  titulo:z.string().trim().min(5).max(90),
  mensagem:z.string().trim().max(280),
@@ -101,6 +102,12 @@ export const temaSchema=z.object({
  campanha:z.enum(['institucional','promocao','feirao','natal','ofertao']),
  modo_banner:z.enum(['nenhum','estatico','carrossel']),
  banners:z.array(z.number().int().min(0).max(3)).max(3).refine(v=>new Set(v).size===v.length),
+ banner_conteudos:z.array(z.object({
+  titulo:z.string().trim().max(60),
+  subtitulo:z.string().trim().max(110),
+  destaque:z.string().trim().max(40),
+  desconto_percentual:z.number().int().min(1).max(99).nullable(),
+ }).strict()).length(4).default(CONTEUDOS_BANNER_PADRAO),
  empresa_nome:z.string().max(150).optional(),
  veiculo_obrigatorio:z.boolean().default(true),
 }).strict();

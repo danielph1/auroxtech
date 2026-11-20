@@ -5,6 +5,7 @@ import {tokenValido,hashToken,novoCodigo,hashCodigo,verificaCodigo,cifrarDados,r
 import {sendAuroxMessage} from '@/lib/aurox-whatsapp/send';
 import {notificar} from '@/lib/notify';
 import {query} from '@/lib/db';
+import {normalizarConteudosBanner} from '@/lib/ficha-portal-tema';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store, private','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow, noarchive','X-Content-Type-Options':'nosniff'};
 const json=(body:object,status=200)=>NextResponse.json(body,{status,headers});
@@ -36,10 +37,10 @@ export async function POST(req:NextRequest){
  try{
   if(b.acao==='consultar'){
    const row=await queryOne<Row>(baseSql,[hash]);if(!row)return json({error:'Este link nao esta mais disponivel. Solicite outro ao vendedor.'},410);
-   const theme=await queryOne<any>(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,campanha,modo_banner,banners,veiculo_obrigatorio FROM public.aurox_ficha_portal_temas
+   const theme=await queryOne<any>(`SELECT titulo,mensagem,cor_primaria,cor_fundo,cor_texto,logo_data_uri,campanha,modo_banner,banners,veiculo_obrigatorio,banner_conteudos FROM public.aurox_ficha_portal_temas
     WHERE empresa_id=$1 AND loja IN ($2,'') ORDER BY (loja=$2) DESC LIMIT 1`,[row.empresa_id,row.loja||'']);
    const empresa=await queryOne<{nome:string}>(`SELECT nome FROM public.empresas WHERE id=$1`,[row.empresa_id]);
-   return json({ok:true,tema:{...TEMA_PADRAO,...theme,empresa_nome:empresa?.nome||'Concessionária'},exige_codigo:true});
+   return json({ok:true,tema:{...TEMA_PADRAO,...theme,banner_conteudos:normalizarConteudosBanner(theme?.banner_conteudos),empresa_nome:empresa?.nome||'Concessionária'},exige_codigo:true});
   }
   if(b.acao==='codigo'){
    const db=await getPool().connect();let row:Row;let code='';

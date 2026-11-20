@@ -61,7 +61,7 @@ export async function POST(req:NextRequest,{params}:Ctx){
   await db.query('SELECT pg_advisory_xact_lock(914206,$1::int)',[s.f.lead_id]);
   await db.query('SELECT pg_advisory_xact_lock(914205,$1::int)',[s.f.vendedor_id]);
   const older=await db.query(`SELECT id,expira_em FROM public.aurox_ficha_portal_convites
-   WHERE empresa_id=$1 AND lead_id=$2 AND usado_em IS NULL AND expira_em>now()
+   WHERE empresa_id=$1 AND lead_id=$2 AND usado_em IS NULL AND revogado_em IS NULL AND expira_em>now()
    LIMIT 1`,[s.f.empresa_id,s.f.lead_id]);
   if(older.rowCount){await db.query('ROLLBACK');return json({error:'Este cliente já possui um link ativo. Aguarde expirar; não é permitido gerar outro agora.',expira_em:older.rows[0].expira_em},409);}
   const c=await db.query(`SELECT count(DISTINCT lead_id)::int AS n FROM public.aurox_ficha_portal_convites
