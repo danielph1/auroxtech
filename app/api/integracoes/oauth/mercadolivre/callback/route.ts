@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { createHmac, randomUUID } from 'node:crypto';
 import { gerarToken, hashToken, urlWebhook } from '@/lib/integracoes/helpers';
+import { encryptMLToken } from '@/lib/mercadolivre/ml-token-crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://manu-manu-automoveis.vercel.app';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://auroxtech.vercel.app';
   const fail = (m: string) => NextResponse.redirect(`${appUrl}/integracoes?oauth_error=${encodeURIComponent(m)}`);
 
   try {
@@ -75,6 +76,8 @@ export async function GET(req: NextRequest) {
       integracaoId = null;
     }
 
+    const tokenCifrado = encryptMLToken(String(tj.access_token));
+    const refreshCifrado = tj.refresh_token ? encryptMLToken(String(tj.refresh_token)) : null;
     const userId = String(tj.user_id || '');
     if (!userId) return fail('mercadolivre_nao_identificou_conta');
     const { rows: mesmasContas } = await query<{ empresa_id: number }>(
@@ -100,8 +103,8 @@ export async function GET(req: NextRequest) {
         [
           st.e,
           userId,
-          tj.access_token,
-          tj.refresh_token || null,
+          tokenCifrado,
+          refreshCifrado,
           JSON.stringify({
             provider: 'oauth_login',
             user_id: userId,
@@ -121,8 +124,8 @@ export async function GET(req: NextRequest) {
         [
           st.e,
           userId,
-          tj.access_token,
-          tj.refresh_token || null,
+          tokenCifrado,
+          refreshCifrado,
           JSON.stringify({ user_id: userId, webhook_url }),
           st.u,
         ],
